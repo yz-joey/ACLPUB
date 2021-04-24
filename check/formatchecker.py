@@ -28,6 +28,7 @@ class Formatter(object):
         for submission in tqdm(sorted(list(fileset))):
             self.pdf = pdfplumber.open(submission)
             self.logs = defaultdict(list)  # reset log before calling the format-checking functions
+            self.page_errors = set()
             self.page_size(); self.page_margin(); self.page_num(paper_type)
             if self.logs:
                 output_file = submission.replace(".pdf", "_format.json")
@@ -43,10 +44,10 @@ class Formatter(object):
         for i,p in enumerate(self.pdf.pages):
             x,y = round(p.width), round(p.height)
             if (x,y) != (595,842):
-                pages += [i+1]
+                pages.append(i+1)
         if pages:
             self.logs["SIZE"] += ["Size of page {} is not A4.".format(pages)]
-        self.wong_page_size = pages
+        self.page_errors.update(pages)
         
     def page_margin(self):
         '''Checks if any text or figure is in the margin of pages.'''
@@ -55,7 +56,7 @@ class Formatter(object):
         pages_text = defaultdict(list)
         self.perror = []
         for i,p in enumerate(self.pdf.pages):
-            if i+1 in self.wong_page_size: continue 
+            if i+1 in self.page_errors: continue
             try: 
                 # Parse images.
                 for image in p.images:
@@ -70,9 +71,10 @@ class Formatter(object):
                         pages_text[i+1] += [word["text"], float(word["x0"]), \
                                             595-float(word["x1"])]
             except:
-                self.perror += [i+1]
+                self.perror.append(i+1)
                 
         if self.perror:
+            self.page_errors.update(self.perror)
             self.logs["PARSING"]= ["Error occurs when parsing page {}.".format(self.perror)]
         if pages_image: 
             p = sorted(list(pages_image))
@@ -94,7 +96,7 @@ class Formatter(object):
         markers = [None, None, None]
         if len(self.pdf.pages) <= page_threshold: return
         for i,p in enumerate(self.pdf.pages):
-            if i+1 in self.perror: continue
+            if i+1 in self.page_errors: continue
 
             texts = p.extract_text().split('\n')
             for j,line in enumerate(texts):
