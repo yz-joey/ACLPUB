@@ -92,33 +92,36 @@ class Formatter(object):
         page_threshold = standards[paper_type.lower()]
 
         # Find (references, acknowledgements, ethics). 
-        markers = [None, None, None]
+        marker = None
         if len(self.pdf.pages) <= page_threshold: return
         for i,p in enumerate(self.pdf.pages):
             if i+1 in self.page_errors: continue
 
             texts = p.extract_text().split('\n')
             for j,line in enumerate(texts):
-                if "References" in line and not markers[0]: 
+                if marker is None and "References" in line:
                     # Reference may appear in both paper and appendix.
-                    markers[0] = (i+1, j+1)
+                    marker = (i+1, j+1)
                 candidates = ["Acknowledgements", "Acknowledgments", \
                                 "Acknowledgment", "Acknowledgement"]
                 if "Acknowl" in line:
                     # Special issue about the spelling of Acknowledgements.
-                    if all([x not in line for x in candidates]):
+                    if all(x not in line for x in candidates):
                         self.logs["MISSPELL"] = ["'Acknowledgments' was misspelled."]
-                    markers[1] = (i+1, j+1)
+                    if marker is None:
+                        marker = (i+1, j+1)
                 candidates = ["Ethical", "Ethics", "Broader Impact"] 
-                if any([x in line for x in candidates]) and not markers[2]:
-                    markers[2] = (i+1, j+1)
-                    
-        markers = list(filter(lambda x: x!=None, markers))
-        # All the markers appear after page 9, and none of them starts at line 1 of
-        # page 10, there is high probability the paper exceeds the page limit.
-        if all((page, line) > (page_threshold + 1, 1) for page, line in markers):
-            self.logs["PAGELIMIT"] = ["Paper <may> exceed the page limit because \
-            (References, Acknoledgments, Ethics) found on (page,line): {}.".format(markers)]
+                if marker is None and any(x in line for x in candidates):
+                    marker = (i+1, j+1)
+
+        # if the first marker appears after the first line of page 10,
+        # there is high probability the paper exceeds the page limit.
+        if marker > (page_threshold + 1, 1):
+            page, line = marker
+            self.logs["PAGELIMIT"] = [f"Paper <may> exceed the page limit "
+                                      f"because first (References, "
+                                      f"Acknowledgments, Ethics) was found on "
+                                      f"page {page}, line {line}."]
 
 
 if __name__ == "__main__":
