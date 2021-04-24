@@ -14,7 +14,6 @@ from tqdm import tqdm
 
 class Formatter(object):
     def __init__(self):
-        self.logs = defaultdict(list)
         self.offset = 2.5
 
     def format_check(self, submission_folder, submission_file, paper_type):
@@ -33,6 +32,7 @@ class Formatter(object):
             print("No files found!"); return
         for submission in tqdm(sorted(list(fileset))):
             self.pdf = pdfplumber.open(submission)
+            self.logs = defaultdict(list)  # reset log before calling the format-checking functions
             self.page_size(); self.page_margin(); self.page_num(paper_type)
             if self.logs:
                 output_file = submission.replace(".pdf", "_format.json")
