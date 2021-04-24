@@ -30,6 +30,8 @@ class Formatter(object):
             self.pdf = pdfplumber.open(submission)
             self.logs = defaultdict(list)  # reset log before calling the format-checking functions
             self.page_errors = set()
+
+            # TODO: A few papers take hours to check. Use a timeout
             self.check_page_size()
             self.check_page_margin()
             self.check_page_num(paper_type)
@@ -74,6 +76,8 @@ class Formatter(object):
                        595-float(word["x1"]) < (69-self.offset):
                         pages_text[i+1] += [word["text"], float(word["x0"]), \
                                             595-float(word["x1"])]
+
+                # TODO: do you need to check tables and lines as well?
             except:
                 perror.append(i+1)
 
