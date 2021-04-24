@@ -42,8 +42,7 @@ class Formatter(object):
 
         pages = []
         for i,p in enumerate(self.pdf.pages):
-            x,y = round(p.width), round(p.height)
-            if (x,y) != (595,842):
+            if (round(p.width), round(p.height)) != (595, 842):
                 pages.append(i+1)
         if pages:
             self.logs["SIZE"] += ["Size of page {} is not A4.".format(pages)]
@@ -54,7 +53,7 @@ class Formatter(object):
             
         pages_image = set()
         pages_text = defaultdict(list)
-        self.perror = []
+        perror = []
         for i,p in enumerate(self.pdf.pages):
             if i+1 in self.page_errors: continue
             try: 
@@ -71,11 +70,11 @@ class Formatter(object):
                         pages_text[i+1] += [word["text"], float(word["x0"]), \
                                             595-float(word["x1"])]
             except:
-                self.perror.append(i+1)
+                perror.append(i+1)
                 
-        if self.perror:
-            self.page_errors.update(self.perror)
-            self.logs["PARSING"]= ["Error occurs when parsing page {}.".format(self.perror)]
+        if perror:
+            self.page_errors.update(perror)
+            self.logs["PARSING"]= ["Error occurs when parsing page {}.".format(perror)]
         if pages_image: 
             p = sorted(list(pages_image))
             self.logs["MARGIN"] += ["Images on page {} <may> fall in the margin.".format(p)] 
@@ -115,15 +114,9 @@ class Formatter(object):
                     markers[2] = (i+1, j+1)
                     
         markers = list(filter(lambda x: x!=None, markers))
-        # Any of (references, acknowledgements, ethics) appears in or before page 9,
-        # it should be fine.
-        mistake = False if any([m[0] <= page_threshold for m in markers]) else True            
         # All the markers appear after page 9, and none of them starts at line 1 of
         # page 10, there is high probability the paper exceeds the page limit.
-        for m in markers:
-            if m[0] > page_threshold and m[1] > 1: continue
-            else: mistake = False
-        if mistake: 
+        if all((page, line) > (page_threshold + 1, 1) for page, line in markers):
             self.logs["PAGELIMIT"] = ["Paper <may> exceed the page limit because \
             (References, Acknoledgments, Ethics) found on (page,line): {}.".format(markers)]
 
