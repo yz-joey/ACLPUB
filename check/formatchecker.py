@@ -30,21 +30,22 @@ class Formatter(object):
             print(f"No PDF files found in {paths}")
             return
         for submission in tqdm(sorted(list(fileset))):
+            print(f"Checking {submission}")
+
             self.pdf = pdfplumber.open(submission)
             self.logs = defaultdict(list)  # reset log before calling the format-checking functions
             self.page_errors = set()
 
-            # TODO: A few papers take hours to check. Use a timeout
+            # TODO: A few papers take hours to check. Use a timeout or parallelize
             self.check_page_size()
             self.check_page_margin()
             self.check_page_num(paper_type)
             self.check_font()
+            self.check_references()
             if self.logs:
                 output_file = submission.replace(".pdf", "_format.json")
                 json.dump(self.logs, open(output_file, 'w'))
-                print("Finished. Details shown in {}.".format(output_file))
-            else:
-                print("Finished. {} is in good shape.".format(submission))
+                print(f"Errors. Check {output_file} for details.")
 
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
@@ -146,6 +147,55 @@ class Formatter(object):
 
         if not max_font_name.endswith(correct_fontname):  # the most used font should be `correct_fontname`
             self.logs["FONT"] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
+
+    def check_references(self):
+        '''Check that citations have URLs, and that they have venues (not just arXiv ids)'''
+
+        found_references = False
+        arxiv_word_count = 0
+        doi_url_count = 0
+        arxiv_url_count = 0
+        all_url_count = 0
+
+        for i, page in enumerate(self.pdf.pages):
+            try:
+                page_text = page.extract_text()
+            except:
+                page_text = ""
+                self.logs["BIB"] += [f"Can't parse page #{i}"]
+
+            lines = page_text.split('\n')
+            for j, line in enumerate(lines):
+                if "References" in line:
+                    found_references = True
+                    break
+            if found_references:
+                arxiv_word_count += page_text.lower().count('arxiv')
+                urls = [h['uri'] for h in page.hyperlinks]
+                urls = set(urls)  # When link text spans more than one line, it returns the same url multiple times
+                for url in urls:
+                    if 'doi.org' in url:
+                        doi_url_count += 1
+                    elif 'arxiv.org' in url:
+                        arxiv_url_count += 1
+                    all_url_count += 1
+
+        # The following checks fail in ~60% of the papers. TODO: relax them a bit
+
+        if doi_url_count < 3:
+            self.logs["BIB"] += [f"Bibliography should use ACL Anothology DOIs whenever possible. Only {doi_url_count} references do."]
+
+        if arxiv_url_count > 0.2 * all_url_count:  # only 20% of the links are allowed to be arXiv links
+            self.logs["BIB"] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anothology DOIs instead."]
+
+        if all_url_count < 5:
+            self.logs["BIB"] += [f"It appears most of the references are not using paper links. Only {all_url_count} links found."]
+
+        if arxiv_word_count > 10:
+            self.logs["BIB"] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
+
+        if not found_references:
+            self.logs["BIB"] += ["Couldn't find references"]
 
 
 if __name__ == "__main__":
