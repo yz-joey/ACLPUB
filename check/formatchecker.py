@@ -1,5 +1,5 @@
 '''
-python3 formatchecker.py --submission_file [xxx.pdf] --paper_type [long/short/other]
+python3 formatchecker.py [-h] [--paper_type {long,short,other}] file_or_dir [file_or_dir ...]
 '''
 
 import argparse
@@ -128,8 +128,10 @@ class Formatter(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+', default=[])
-    parser.add_argument('--paper_type', default='long')
+    parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
+                        default=[])
+    parser.add_argument('--paper_type', choices={"short", "long", "other"},
+                        default='long')
     args = parser.parse_args()
     FC = Formatter()
     FC.format_check(**vars(args))
