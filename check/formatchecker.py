@@ -90,6 +90,8 @@ class Formatter(object):
         # Set the threshold for different types of paper.
         standards = {"short": 5, "long": 9, "other": float("inf")}
         page_threshold = standards[paper_type.lower()]
+        candidates = {"References", "Acknowl", "Ethic", "Broader Impact"}
+        acks = {"Acknowledgment", "Acknowledgement"}
 
         # Find (references, acknowledgements, ethics). 
         marker = None
@@ -99,20 +101,10 @@ class Formatter(object):
 
             texts = p.extract_text().split('\n')
             for j,line in enumerate(texts):
-                if marker is None and "References" in line:
-                    # Reference may appear in both paper and appendix.
-                    marker = (i+1, j+1)
-                candidates = ["Acknowledgements", "Acknowledgments", \
-                                "Acknowledgment", "Acknowledgement"]
-                if "Acknowl" in line:
-                    # Special issue about the spelling of Acknowledgements.
-                    if all(x not in line for x in candidates):
-                        self.logs["MISSPELL"] = ["'Acknowledgments' was misspelled."]
-                    if marker is None:
-                        marker = (i+1, j+1)
-                candidates = ["Ethical", "Ethics", "Broader Impact"] 
                 if marker is None and any(x in line for x in candidates):
                     marker = (i+1, j+1)
+                if "Acknowl" in line and all(x not in line for x in acks):
+                    self.logs["MISSPELL"] = ["'Acknowledgments' was misspelled."]
 
         # if the first marker appears after the first line of page 10,
         # there is high probability the paper exceeds the page limit.
