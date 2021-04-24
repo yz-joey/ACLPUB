@@ -16,20 +16,15 @@ class Formatter(object):
     def __init__(self):
         self.offset = 2.5
 
-    def format_check(self, submission_folder, submission_file, paper_type):
-
-        fileset = set()
-        if submission_folder:
-            for root, dirs, files in walk(submission_folder):
-                for f in files:
-                    if f.endswith(".pdf"): fileset.add(join(root, f))
-        if submission_file:
-            if isfile(submission_file):
-                fileset.add(submission_file)
-            else:
-                print("The input is not a file."); return
-        if not fileset: 
-            print("No files found!"); return
+    def format_check(self, submission_paths, paper_type):
+        paths = {join(root, file_name)
+                 for path in submission_paths
+                 for root, _, file_names in walk(path)
+                 for file_name in file_names}
+        paths.update(submission_paths)
+        fileset = {p for p in paths if isfile(p) and p.endswith(".pdf")}
+        if not fileset:
+            print(f"No PDF files found in {paths}"); return
         for submission in tqdm(sorted(list(fileset))):
             self.pdf = pdfplumber.open(submission)
             self.logs = defaultdict(list)  # reset log before calling the format-checking functions
@@ -133,8 +128,7 @@ class Formatter(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--submission_folder', default=None)
-    parser.add_argument('--submission_file', default=None)
+    parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+', default=[])
     parser.add_argument('--paper_type', default='long')
     args = parser.parse_args()
     FC = Formatter()
