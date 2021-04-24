@@ -136,12 +136,12 @@ class Formatter(object):
                     fonts[char['fontname']] += 1
             except:
                 self.logs["FONT"] += [f"Can't parse page #{i}"]
-        max_font_count, max_font_name = max((count, name) for name, count in fonts.items())
+        max_font_count, max_font_name = max((count, name) for name, count in fonts.items())  # find most used font
         sum_char_count = sum(fonts.values())
-        if max_font_count / sum_char_count < 0.35:
+        if max_font_count / sum_char_count < 0.35:  # the most used font should be used more than 35% of the time
             self.logs["FONT"] += ["Can't find the main font"]
 
-        if not max_font_name.endswith(correct_fontname):
+        if not max_font_name.endswith(correct_fontname):  # the most used font should be `correct_fontname`
             self.logs["FONT"] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
 
 
