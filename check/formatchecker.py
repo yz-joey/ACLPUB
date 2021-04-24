@@ -29,7 +29,7 @@ class Formatter(object):
             self.pdf = pdfplumber.open(submission)
             self.logs = defaultdict(list)  # reset log before calling the format-checking functions
             self.page_errors = set()
-            self.page_size(); self.page_margin(); self.page_num(paper_type)
+            self.check_page_size(); self.check_page_margin(); self.check_page_num(paper_type); self.check_font()
             if self.logs:
                 output_file = submission.replace(".pdf", "_format.json")
                 json.dump(self.logs, open(output_file, 'w'))
@@ -37,7 +37,7 @@ class Formatter(object):
             else:
                 print("Finished. {} is in good shape.".format(submission))
 
-    def page_size(self):
+    def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
 
         pages = []
@@ -48,7 +48,7 @@ class Formatter(object):
             self.logs["SIZE"] += ["Size of page {} is not A4.".format(pages)]
         self.page_errors.update(pages)
         
-    def page_margin(self):
+    def check_page_margin(self):
         '''Checks if any text or figure is in the margin of pages.'''
             
         pages_image = set()
@@ -84,7 +84,7 @@ class Formatter(object):
             self.logs["MARGIN"] += ["Details are as follows:", dict(pages_text)] 
         
     
-    def page_num(self, paper_type):
+    def check_page_num(self, paper_type):
         '''Check if the paper exceeds the page limit.'''
 
         # Set the threshold for different types of paper.
@@ -115,6 +115,24 @@ class Formatter(object):
                                       f"Acknowledgments, Ethics) was found on "
                                       f"page {page}, line {line}."]
 
+    def check_font(self):
+        '''Check the font'''
+
+        correct_fontname = "NimbusRomNo9L-Regu"
+        fonts = defaultdict(int)
+        for i, page in enumerate(self.pdf.pages):
+            try:
+                for char in page.chars:
+                    fonts[char['fontname']] += 1
+            except:
+                self.logs["FONT"] += [f"Can't parse page #{i}"]
+        max_font_count, max_font_name = max((count, name) for name, count in fonts.items())
+        sum_char_count = sum(fonts.values())
+        if max_font_count / sum_char_count < 0.35:
+            self.logs["FONT"] += [f"Can't find the main font"]
+
+        if not max_font_name.endswith(correct_fontname):
+            self.logs["FONT"] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
