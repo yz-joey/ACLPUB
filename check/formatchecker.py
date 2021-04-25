@@ -43,6 +43,7 @@ class Formatter(object):
 
         pages = []
         for i, p in enumerate(self.pdf.pages):
+            # TODO: Verify the values used as criteria.
             if (round(p.width), round(p.height)) != (595, 842):
                 pages.append(i+1)
         if pages:
@@ -91,6 +92,7 @@ class Formatter(object):
         '''Check if the paper exceeds the page limit.'''
 
         # Set the threshold for different types of paper.
+        # TODO: Enable uploading a paper_type file to include all papers' types.
         standards = {"short": 5, "long": 9, "other": float("inf")}
         page_threshold = standards[paper_type.lower()]
         candidates = {"References", "Acknowl", "Ethic", "Broader Impact"}
