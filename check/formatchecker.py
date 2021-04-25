@@ -32,9 +32,10 @@ class Formatter(object):
         self.check_page_num(paper_type)
         self.check_font()
         self.check_references()
+
+        output_file = submission.replace(".pdf", "_format.json")
+        json.dump(self.logs, open(output_file, 'w'))  # always write a log file even if it is empty
         if self.logs:
-            output_file = submission.replace(".pdf", "_format.json")
-            json.dump(self.logs, open(output_file, 'w'))
             print(f"Errors. Check {output_file} for details.")
 
     def check_page_size(self):
