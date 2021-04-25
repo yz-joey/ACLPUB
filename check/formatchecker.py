@@ -26,7 +26,7 @@ class Formatter(object):
         self.logs = defaultdict(list)  # reset log before calling the format-checking functions
         self.page_errors = set()
 
-        # TODO: A few papers take hours to check. Use a timeout or parallelize
+        # TODO: A few papers take hours to check. Consider using a timeout
         self.check_page_size()
         self.check_page_margin()
         self.check_page_num(paper_type)
