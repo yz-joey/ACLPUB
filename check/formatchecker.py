@@ -19,33 +19,23 @@ class Formatter(object):
     def __init__(self):
         self.offset = 2.5
 
-    def format_check(self, submission_paths, paper_type):
-        paths = {join(root, file_name)
-                 for path in submission_paths
-                 for root, _, file_names in walk(path)
-                 for file_name in file_names}
-        paths.update(submission_paths)
-        fileset = {p for p in paths if isfile(p) and p.endswith(".pdf")}
-        if not fileset:
-            print(f"No PDF files found in {paths}")
-            return
-        for submission in tqdm(sorted(list(fileset))):
-            print(f"Checking {submission}")
+    def format_check(self, submission, paper_type):
+        print(f"Checking {submission}")
 
-            self.pdf = pdfplumber.open(submission)
-            self.logs = defaultdict(list)  # reset log before calling the format-checking functions
-            self.page_errors = set()
+        self.pdf = pdfplumber.open(submission)
+        self.logs = defaultdict(list)  # reset log before calling the format-checking functions
+        self.page_errors = set()
 
-            # TODO: A few papers take hours to check. Use a timeout or parallelize
-            self.check_page_size()
-            self.check_page_margin()
-            self.check_page_num(paper_type)
-            self.check_font()
-            self.check_references()
-            if self.logs:
-                output_file = submission.replace(".pdf", "_format.json")
-                json.dump(self.logs, open(output_file, 'w'))
-                print(f"Errors. Check {output_file} for details.")
+        # TODO: A few papers take hours to check. Use a timeout or parallelize
+        self.check_page_size()
+        self.check_page_margin()
+        self.check_page_num(paper_type)
+        self.check_font()
+        self.check_references()
+        if self.logs:
+            output_file = submission.replace(".pdf", "_format.json")
+            json.dump(self.logs, open(output_file, 'w'))
+            print(f"Errors. Check {output_file} for details.")
 
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
@@ -204,6 +194,25 @@ if __name__ == "__main__":
                         default=[])
     parser.add_argument('--paper_type', choices={"short", "long", "other"},
                         default='long')
+    parser.add_argument('--num_workers', type=int, default=1)
     args = parser.parse_args()
-    FC = Formatter()
-    FC.format_check(**vars(args))
+
+    paths = {join(root, file_name)
+             for path in args.submission_paths
+             for root, _, file_names in walk(path)
+             for file_name in file_names}
+    paths.update(args.submission_paths)
+    fileset = {p for p in paths if isfile(p) and p.endswith(".pdf")}
+    fileset = sorted(list(fileset))
+    if not fileset:
+        print(f"No PDF files found in {paths}")
+
+    def process_one_pdf(pdf_path):
+        Formatter().format_check(submission=pdf_path, paper_type=args.paper_type)
+
+    if args.num_workers > 1:
+        from multiprocessing.pool import Pool
+        with Pool(args.num_workers) as p:
+            list(tqdm(p.imap(process_one_pdf, fileset), total=len(fileset)))
+    else:
+        [process_one_pdf(submission) for submission in tqdm(fileset)]
