@@ -189,7 +189,7 @@ class Formatter(object):
             self.logs["BIB"] += ["Couldn't find references"]
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
                         default=[])
@@ -217,3 +217,6 @@ if __name__ == "__main__":
             list(tqdm(p.imap(process_one_pdf, fileset), total=len(fileset)))
     else:
         [process_one_pdf(submission) for submission in tqdm(fileset)]
+
+if __name__ == "__main__":
+    main()
