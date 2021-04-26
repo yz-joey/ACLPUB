@@ -4,14 +4,12 @@ python3 formatchecker.py [-h] [--paper_type {long,short,other}] file_or_dir [fil
 
 # TODO: make the script pip installable
 
-
 import argparse
 import json
-import pdfplumber
-
 from collections import defaultdict
 from os import walk
 from os.path import isfile, join
+import pdfplumber
 from tqdm import tqdm
 
 
