@@ -6,12 +6,21 @@ python3 formatchecker.py [-h] [--paper_type {long,short,other}] file_or_dir [fil
 
 import argparse
 import json
+from enum import Enum
 from collections import defaultdict
 from os import walk
 from os.path import isfile, join
 import pdfplumber
 from tqdm import tqdm
 
+class Error(Enum):
+    SIZE = "Size Error"
+    PARSING = "Parsing Error"
+    MARGIN = "Margin Error"
+    SPELLING = "Spelling Error"
+    BIB = "Bibliography Error"
+    FONT = "Font Error"
+    PAGELIMIT = "Page Limit Error"
 
 class Formatter(object):
     def __init__(self):
@@ -45,7 +54,7 @@ class Formatter(object):
             if (round(p.width), round(p.height)) != (595, 842):
                 pages.append(i+1)
         if pages:
-            self.logs["SIZE"] += ["Size of page {} is not A4.".format(pages)]
+            self.logs[Error.SIZE.value] += ["Size of page {} is not A4.".format(pages)]
         self.page_errors.update(pages)
 
     def check_page_margin(self):
@@ -77,20 +86,21 @@ class Formatter(object):
 
         if perror:
             self.page_errors.update(perror)
-            self.logs["PARSING"] = ["Error occurs when parsing page {}.".format(perror)]
+            self.logs[Error.PARSING.value] = ["Error occurs when parsing page {}.".format(perror)]
         if pages_image:
             p = sorted(list(pages_image))
-            self.logs["MARGIN"] += ["Images on page {} <may> fall in the margin.".format(p)]
+            self.logs[Error.MARGIN.value] += ["Images on page {} <may> fall in the margin.".format(p)]
         if pages_text:
             p = sorted(pages_text.keys())
-            self.logs["MARGIN"] += ["Texts on page {} <may> fall in the margin.".format(p)]
-            self.logs["MARGIN"] += ["Details are as follows:", dict(pages_text)]
+            self.logs[Error.MARGIN.value] += ["Texts on page {} <may> fall in the margin.".format(p)]
+            self.logs[Error.MARGIN.value] += ["Details are as follows:", dict(pages_text)]
 
     def check_page_num(self, paper_type):
         '''Check if the paper exceeds the page limit.'''
 
-        # Set the threshold for different types of paper.
         # TODO: Enable uploading a paper_type file to include all papers' types.
+
+        # thresholds for different types of papers
         standards = {"short": 5, "long": 9, "other": float("inf")}
         page_threshold = standards[paper_type.lower()]
         candidates = {"References", "Acknowl", "Ethic", "Broader Impact"}
@@ -100,22 +110,22 @@ class Formatter(object):
         marker = None
         if len(self.pdf.pages) <= page_threshold:
             return
-        for i, p in enumerate(self.pdf.pages):
+        
+        for i, page in enumerate(self.pdf.pages):
             if i+1 in self.page_errors:
                 continue
-
-            texts = p.extract_text().split('\n')
-            for j, line in enumerate(texts):
+            text = page.extract_text().split('\n')
+            for j, line in enumerate(text):
                 if marker is None and any(x in line for x in candidates):
                     marker = (i+1, j+1)
                 if "Acknowl" in line and all(x not in line for x in acks):
-                    self.logs["MISSPELL"] = ["'Acknowledgments' was misspelled."]
+                    self.logs[Error.SPELLING.value] = ["'Acknowledgments' was misspelled."]
 
         # if the first marker appears after the first line of page 10,
         # there is high probability the paper exceeds the page limit.
         if marker > (page_threshold + 1, 1):
             page, line = marker
-            self.logs["PAGELIMIT"] = [f"Paper <may> exceed the page limit "
+            self.logs[Error.PAGELIMIT] = [f"Paper <may> exceed the page limit "
                                       f"because first (References, "
                                       f"Acknowledgments, Ethics) was found on "
                                       f"page {page}, line {line}."]
@@ -130,14 +140,15 @@ class Formatter(object):
                 for char in page.chars:
                     fonts[char['fontname']] += 1
             except:
-                self.logs["FONT"] += [f"Can't parse page #{i}"]
+                self.logs[Error.FONT.value] += [f"Can't parse page #{i}"]
         max_font_count, max_font_name = max((count, name) for name, count in fonts.items())  # find most used font
         sum_char_count = sum(fonts.values())
+        # TODO: make this a command line argument
         if max_font_count / sum_char_count < 0.35:  # the most used font should be used more than 35% of the time
-            self.logs["FONT"] += ["Can't find the main font"]
+            self.logs[Error.FONT.value] += ["Can't find the main font"]
 
         if not max_font_name.endswith(correct_fontname):  # the most used font should be `correct_fontname`
-            self.logs["FONT"] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
+            self.logs[Error.FONT.value] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
 
     def check_references(self):
         '''Check that citations have URLs, and that they have venues (not just arXiv ids)'''
@@ -153,7 +164,7 @@ class Formatter(object):
                 page_text = page.extract_text()
             except:
                 page_text = ""
-                self.logs["BIB"] += [f"Can't parse page #{i}"]
+                self.logs[Error.BIB.value] += [f"Can't parse page #{i}"]
 
             lines = page_text.split('\n')
             for j, line in enumerate(lines):
@@ -174,19 +185,19 @@ class Formatter(object):
         # The following checks fail in ~60% of the papers. TODO: relax them a bit
 
         if doi_url_count < 3:
-            self.logs["BIB"] += [f"Bibliography should use ACL Anothology DOIs whenever possible. Only {doi_url_count} references do."]
+            self.logs[Error.BIB.value] += [f"Bibliography should use ACL Anothology DOIs whenever possible. Only {doi_url_count} references do."]
 
         if arxiv_url_count > 0.2 * all_url_count:  # only 20% of the links are allowed to be arXiv links
-            self.logs["BIB"] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anothology DOIs instead."]
+            self.logs[Error.BIB.value] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anothology DOIs instead."]
 
         if all_url_count < 5:
-            self.logs["BIB"] += [f"It appears most of the references are not using paper links. Only {all_url_count} links found."]
+            self.logs[Error.BIB.value] += [f"It appears most of the references are not using paper links. Only {all_url_count} links found."]
 
         if arxiv_word_count > 10:
-            self.logs["BIB"] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
+            self.logs[Error.BIB.value] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
 
         if not found_references:
-            self.logs["BIB"] += ["Couldn't find references"]
+            self.logs[Error.BIB.value] += ["Couldn't find references"]
 
 
 def main():
