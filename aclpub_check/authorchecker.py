@@ -14,18 +14,17 @@ def _clean_str(value):
 
 def check_authors(submissions_path, pdfs_dir):
     df = pd.read_csv(submissions_path, keep_default_na=False)
-    id_to_full_names = {}
-    id_to_last_names = {}
+    id_to_names = {}
     for index, row in df.iterrows():
         submission_id = row["Submission ID"]
 
         # collect all authors and their affiliations
-        id_to_full_names[submission_id] = []
+        id_to_names[submission_id] = []
         for i in range(1, 25):
             for x in ['First', 'Middle', 'Last']:
                 name_part = _clean_str(row[f'{i}: {x} Name'])
                 if name_part:
-                    id_to_full_names[submission_id].extend(name_part.split())
+                    id_to_names[submission_id].extend(name_part.split())
 
     papers = []
     for root, _, filenames in os.walk(pdfs_dir):
@@ -36,13 +35,13 @@ def check_authors(submissions_path, pdfs_dir):
 
     failures = 0
     for submission_id, pdf_path in sorted(papers):
-        author_names = id_to_full_names[submission_id]
+        names = id_to_names[submission_id]
         pdf = pdfplumber.open(pdf_path)
-        first_page_text = _clean_str(pdf.pages[0].extract_text())[:500]
-        full_name_match = re.search('.*?'.join(author_names), first_page_text, re.DOTALL)
-        if not full_name_match:
+        text = _clean_str(pdf.pages[0].extract_text())[:500]
+        match = re.search('.*?'.join(names), text, re.DOTALL)
+        if not match:
             failures += 1
-            print(f"{submission_id}: FAILED. can't find \"{';'.join(author_names)}\" in \"{first_page_text}\"\n")
+            print(f"{submission_id}: FAILED. can't find \"{';'.join(names)}\" in \"{text}\"\n")
 
     print(f"{failures} submissions failed")
 
