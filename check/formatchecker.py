@@ -190,30 +190,36 @@ class Formatter(object):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
+    PARSER = argparse.ArgumentParser()
+    PARSER.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
                         default=[])
-    parser.add_argument('--paper_type', choices={"short", "long", "other"},
+    PARSER.add_argument('--paper_type', choices={"short", "long", "other"},
                         default='long')
-    parser.add_argument('--num_workers', type=int, default=1)
-    args = parser.parse_args()
+    PARSER.add_argument('--num_workers', type=int, default=1)
+    
+    ARGS = PARSER.parse_args()
 
-    paths = {join(root, file_name)
-             for path in args.submission_paths
+    # retrieve file paths
+    PATHS = {join(root, file_name)
+             for path in ARGS.submission_PATHS
              for root, _, file_names in walk(path)
              for file_name in file_names}
-    paths.update(args.submission_paths)
-    fileset = {p for p in paths if isfile(p) and p.endswith(".pdf")}
-    fileset = sorted(list(fileset))
-    if not fileset:
-        print(f"No PDF files found in {paths}")
+    PATHS.update(ARGS.submission_PATHS)
 
-    def process_one_pdf(pdf_path):
-        Formatter().format_check(submission=pdf_path, paper_type=args.paper_type)
+    # retrive files
+    FILESET = {p for p in PATHS if isfile(p) and p.endswith(".pdf")}
+    FILESET = sorted(list(FILESET))
+    if not FILESET:
+        print(f"No PDF files found in {PATHS}")
 
-    if args.num_workers > 1:
+    def worker(pdf_path):
+        """ process one pdf """
+        Formatter().format_check(submission=pdf_path, paper_type=ARGS.paper_type)
+        
+    if ARGS.num_workers > 1:
         from multiprocessing.pool import Pool
-        with Pool(args.num_workers) as p:
-            list(tqdm(p.imap(process_one_pdf, fileset), total=len(fileset)))
+        with Pool(ARGS.num_workers) as p:
+            list(tqdm(p.imap(worker, FILESET), total=len(FILESET)))
     else:
-        [process_one_pdf(submission) for submission in tqdm(fileset)]
+        for submission in tqdm(FILESET):
+            worker(submission)
