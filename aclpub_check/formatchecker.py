@@ -189,37 +189,41 @@ class Formatter(object):
             self.logs["BIB"] += ["Couldn't find references"]
 
 
-if __name__ == "__main__":
-    PARSER = argparse.ArgumentParser()
-    PARSER.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
                         default=[])
-    PARSER.add_argument('--paper_type', choices={"short", "long", "other"},
+    parser.add_argument('--paper_type', choices={"short", "long", "other"},
                         default='long')
-    PARSER.add_argument('--num_workers', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=1)
     
-    ARGS = PARSER.parse_args()
+    args = parser.parse_args()
 
     # retrieve file paths
-    PATHS = {join(root, file_name)
-             for path in ARGS.submission_PATHS
+    paths = {join(root, file_name)
+             for path in args.submission_paths
              for root, _, file_names in walk(path)
              for file_name in file_names}
-    PATHS.update(ARGS.submission_PATHS)
+    paths.update(args.submission_paths)
 
     # retrive files
-    FILESET = {p for p in PATHS if isfile(p) and p.endswith(".pdf")}
-    FILESET = sorted(list(FILESET))
-    if not FILESET:
-        print(f"No PDF files found in {PATHS}")
+    fileset = sorted([p for p in paths if isfile(p) and p.endswith(".pdf")])
+
+    if not fileset:
+        print(f"No PDF files found in {paths}")
 
     def worker(pdf_path):
         """ process one pdf """
-        Formatter().format_check(submission=pdf_path, paper_type=ARGS.paper_type)
+        Formatter().format_check(submission=pdf_path, paper_type=args.paper_type)
         
-    if ARGS.num_workers > 1:
+    if args.num_workers > 1:
         from multiprocessing.pool import Pool
-        with Pool(ARGS.num_workers) as p:
-            list(tqdm(p.imap(worker, FILESET), total=len(FILESET)))
+        with Pool(args.num_workers) as p:
+            list(tqdm(p.imap(worker, fileset), total=len(fileset)))
     else:
-        for submission in tqdm(FILESET):
+        for submission in tqdm(fileset):
             worker(submission)
+
+if __name__ == "__main__":
+    main()
+
