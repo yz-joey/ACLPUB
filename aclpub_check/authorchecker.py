@@ -27,18 +27,19 @@ def check_authors(submissions_path, pdfs_dir):
                 if name_part:
                     id_to_full_names[submission_id].extend(name_part.split())
 
-    papers = [(root, filename)
-              for root, _, filenames in os.walk(pdfs_dir)
-              for filename in filenames
-              if filename.endswith("_Paper.pdf")]
+    papers = []
+    for root, _, filenames in os.walk(pdfs_dir):
+        for filename in filenames:
+            if filename.endswith("_Paper.pdf"):
+                submission_id, _ = filename.split("_", 1)
+                papers.append((int(submission_id), os.path.join(root, filename)))
+
     failures = 0
-    for root, filename in sorted(papers):
-        submission_id, _ = filename.split("_", 1)
-        submission_id = int(submission_id)
+    for submission_id, pdf_path in sorted(papers):
         author_names = id_to_full_names[submission_id]
-        pdf = pdfplumber.open(os.path.join(root, filename))
-        first_page_text = _clean_str(pdf.pages[0].extract_text())[:1000]
-        full_name_match = re.search('.*?'.join(author_names), first_page_text, re.DOTALL | re.IGNORECASE)
+        pdf = pdfplumber.open(pdf_path)
+        first_page_text = _clean_str(pdf.pages[0].extract_text())[:500]
+        full_name_match = re.search('.*?'.join(author_names), first_page_text, re.DOTALL)
         if not full_name_match:
             failures += 1
             print(f"{submission_id}: FAILED. can't find \"{';'.join(author_names)}\" in \"{first_page_text}\"\n")
