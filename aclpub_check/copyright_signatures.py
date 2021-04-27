@@ -1,11 +1,7 @@
 import argparse
-import os.path
 import textwrap
 import pandas as pd
-import googleapiclient.discovery
-import google_auth_oauthlib.flow
-import google.auth.transport.requests
-import google.oauth2.credentials
+import googletools
 
 
 def yield_problems(signature, org_name, org_address):
@@ -100,9 +96,7 @@ Name and address of your organization:
 
         if post:
             # open up the Google Sheet
-            service = googleapiclient.discovery.build(
-                'sheets', 'v4', credentials=creds())
-            values = service.spreadsheets().values()
+            values = googletools.sheets_service().spreadsheets().values()
 
             # get the number of rows
             id_range = f'{sheet_id}!{id_column}1:{id_column}'
@@ -117,33 +111,6 @@ Name and address of your organization:
                 body={'values': [[row_to_problems.get(i, '')]
                                  for i in range(2, n_rows)]})
             request.execute()
-
-
-def creds():
-    """Loads credentials for Google Sheets.
-
-     A credentials.json file should be in the current directory.
-     https://developers.google.com/workspace/guides/create-credentials
-     A token.json file will be written to the current directory to avoid
-     repeatedly asking the user to login.
-
-    :return: a google.oauth2.credentials.Credentials
-    """
-    scopes = ['https://www.googleapis.com/auth/spreadsheets']
-    creds = None
-    if os.path.exists('token.json'):
-        creds = google.oauth2.credentials.Credentials.from_authorized_user_file(
-            'token.json', scopes)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(google.auth.transport.requests.Request())
-        else:
-            iaf = google_auth_oauthlib.flow.InstalledAppFlow
-            flow = iaf.from_client_secrets_file('credentials.json', scopes)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    return creds
 
 
 if __name__ == "__main__":
