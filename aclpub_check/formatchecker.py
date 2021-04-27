@@ -33,6 +33,7 @@ class Page(Enum):
     WIDTH = 595
     # 842 pixels (72ppi) = 29.7cm
     HEIGHT = 842
+
     
 class Formatter(object):
     def __init__(self):
@@ -56,11 +57,11 @@ class Formatter(object):
         self.check_font()
         self.check_references()
 
+        # TOOD: put json dump back on
         #output_file = submission.replace(".pdf", "_format.json")
         #json.dump(self.logs, open(output_file, 'w'))  # always write a log file even if it is empty
         #if self.logs:
         #    print(f"Errors. Check {output_file} for details.")
-
 
         errors, warnings = 0, 0
         if self.logs.items():
@@ -286,7 +287,7 @@ def main():
              for file_name in file_names}
     paths.update(args.submission_paths)
 
-    # retrive files
+    # retrieve files
     fileset = sorted([p for p in paths if isfile(p) and p.endswith(".pdf")])
 
     if not fileset:
