@@ -12,18 +12,31 @@ from os import walk
 from os.path import isfile, join
 import pdfplumber
 from tqdm import tqdm
+from termcolor import colored
+
 
 class Error(Enum):
-    SIZE = "Size Error"
-    PARSING = "Parsing Error"
-    MARGIN = "Margin Error"
-    SPELLING = "Spelling Error"
-    BIB = "Bibliography Error"
-    FONT = "Font Error"
-    PAGELIMIT = "Page Limit Error"
+    SIZE = "Size"
+    PARSING = "Parsing"
+    MARGIN = "Margin"
+    SPELLING = "Spelling"
+    FONT = "Font"
+    PAGELIMIT = "Page Limit"
 
+    
+class Warn(Enum):
+    BIB = "Bibliography"
+
+
+class Page(Enum):
+    # 595 pixels (72ppi) = 21cm 
+    WIDTH = 595
+    # 842 pixels (72ppi) = 29.7cm
+    HEIGHT = 842
+    
 class Formatter(object):
     def __init__(self):
+        # TODO: these should be constants
         self.right_offset = 4.5
         self.left_offset = 2
         self.top_offset = 1
@@ -31,6 +44,7 @@ class Formatter(object):
     def format_check(self, submission, paper_type):
         print(f"Checking {submission}")
 
+        self.number = submission.split("/")[-1].split("_")[0]
         self.pdf = pdfplumber.open(submission)
         self.logs = defaultdict(list)  # reset log before calling the format-checking functions
         self.page_errors = set()
@@ -42,62 +56,104 @@ class Formatter(object):
         self.check_font()
         self.check_references()
 
-        output_file = submission.replace(".pdf", "_format.json")
-        json.dump(self.logs, open(output_file, 'w'))  # always write a log file even if it is empty
-        if self.logs:
-            print(f"Errors. Check {output_file} for details.")
+        #output_file = submission.replace(".pdf", "_format.json")
+        #json.dump(self.logs, open(output_file, 'w'))  # always write a log file even if it is empty
+        #if self.logs:
+        #    print(f"Errors. Check {output_file} for details.")
+
+
+        if self.logs.items():
+            for e, ms in self.logs.items():
+                for m in ms:
+                    # TODO: there has to be a better way to do this
+                    if  str(type(e)) == "<enum 'Error'>":
+                        print(colored("Error ({0}):".format(e.value), "red")+" "+m)
+                    else:
+                        print(colored("Warning ({0}):".format(e.value), "yellow")+" "+m)
+        else:
+            print(colored("All Clear!", "green"))
+            
 
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
 
         pages = []
-        for i, p in enumerate(self.pdf.pages):
-            # 595 pixels (72ppi) = 21cm; 842 pixels (72ppi) = 29.7cm.
-            if (round(p.width), round(p.height)) != (595, 842):
+        for i, page in enumerate(self.pdf.pages):
+
+            if (round(page.width), round(page.height)) != (Page.WIDTH.value, Page.HEIGHT.value):
                 pages.append(i+1)
-        if pages:
-            self.logs[Error.SIZE.value] += ["Size of page {} is not A4.".format(pages)]
+        for page in pages:
+            error = "Page #{} is not A4.".format(page)
+            self.logs[Error.SIZE] += [error]
         self.page_errors.update(pages)
 
     def check_page_margin(self):
         '''Checks if any text or figure is in the margin of pages.'''
 
-        pages_image = set()
+        pages_image = defaultdict(list)
         pages_text = defaultdict(list)
         perror = []
         for i, p in enumerate(self.pdf.pages):
-            if i+1 in self.page_errors:
+            if i in self.page_errors:
                 continue
             try:
-                # Parse images.
+                # Parse images
                 # 57 pixels (72ppi) = 2cm; 71 pixels (72ppi) = 2.5cm.
                 for image in p.images:
                     if float(image["top"]) < (57-self.top_offset) or \
                        float(image["x0"]) < (71-self.left_offset) or \
-                       595-float(image["x1"]) < (71-self.right_offset):
-                        pages_image.add(i+1)
+                       Page.WIDTH.value-float(image["x1"]) < (71-self.right_offset):
+                        pages_image[i] += [image]
 
-                # Parse texts.
+                # Parse texts
                 for j, word in enumerate(p.extract_words()):
                     if float(word["top"]) < (57-self.top_offset) or \
                        float(word["x0"]) < (71-self.left_offset) or \
-                       595-float(word["x1"]) < (71-self.right_offset):
-                        pages_text[i+1] += [word["text"], float(word["x0"]), \
-                                            595-float(word["x1"])]
+                       Page.WIDTH.value-float(word["x1"]) < (71-self.right_offset):
+                        pages_text[i] += [word]
             except:
-                perror.append(i+1)
+                perror.append(i)
 
         if perror:
             self.page_errors.update(perror)
-            self.logs[Error.PARSING.value] = ["Error occurs when parsing page {}.".format(perror)]
-        if pages_image:
-            p = sorted(list(pages_image))
-            self.logs[Error.MARGIN.value] += ["Images on page {} <may> fall in the margin.".format(p)]
-        if pages_text:
-            p = sorted(pages_text.keys())
-            self.logs[Error.MARGIN.value] += ["Texts on page {} <may> fall in the margin.".format(p)]
-            self.logs[Error.MARGIN.value] += ["Details are as follows:", dict(pages_text)]
+            self.logs[Error.PARSING] = ["Error occurs when parsing page {}.".format(perror)]
 
+        if pages_text or pages_image:
+            pages = sorted(set(pages_text.keys()).union(set((pages_image.keys()))))
+            for page in pages:
+                im = self.pdf.pages[page].to_image(resolution=150)
+                for word in pages_text[page]:
+
+                    # error
+                    self.logs[Error.MARGIN] += ["Text on page {} bleeds into the margin.".format(page+1)]
+
+                    # image
+                    x0 = word["x0"]
+                    top = word["top"]
+                    bot = word["bottom"]
+
+                    # TODO: this logic is broken for tables
+                    bbox = None
+                    if x0 >= Page.WIDTH.value /2:
+                        # right margin violation
+                        bbox = (Page.WIDTH.value-80, int(top-20), Page.WIDTH.value-20, int(bot+20))
+                    else:
+                        # left margin violation
+                        bbox = (20, int(top-20), 80, int(bot+20))
+                    im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
+
+                for image in pages_image[page]:
+
+                    # error
+                    self.logs[Error.MARGIN] += ["An image on page {} bleeds into the margin.".format(page+1)]
+                    
+                    # image
+                    bbox = (image["x0"], image["top"], image["x1"], image["bottom"])
+                    im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
+                    
+                im.save("corrections-{0}-page-{1}.png".format(*(self.number, page+1)), format="PNG")
+                #+ "Specific text: "+str([v for k, v in pages_text.values()])]
+                
     def check_page_num(self, paper_type):
         '''Check if the paper exceeds the page limit.'''
 
@@ -122,13 +178,13 @@ class Formatter(object):
                 if marker is None and any(x in line for x in candidates):
                     marker = (i+1, j+1)
                 if "Acknowl" in line and all(x not in line for x in acks):
-                    self.logs[Error.SPELLING.value] = ["'Acknowledgments' was misspelled."]
+                    self.logs[Error.SPELLING] = ["'Acknowledgments' was misspelled."]
 
         # if the first marker appears after the first line of page 10,
         # there is high probability the paper exceeds the page limit.
         if marker > (page_threshold + 1, 1):
             page, line = marker
-            self.logs[Error.PAGELIMIT] = [f"Paper <may> exceed the page limit "
+            self.logs[Error.PAGELIMIT] = [f"Paper exceeds the page limit "
                                       f"because first (References, "
                                       f"Acknowledgments, Ethics) was found on "
                                       f"page {page}, line {line}."]
@@ -143,15 +199,15 @@ class Formatter(object):
                 for char in page.chars:
                     fonts[char['fontname']] += 1
             except:
-                self.logs[Error.FONT.value] += [f"Can't parse page #{i}"]
+                self.logs[Error.FONT] += [f"Can't parse page #{i}"]
         max_font_count, max_font_name = max((count, name) for name, count in fonts.items())  # find most used font
         sum_char_count = sum(fonts.values())
         # TODO: make this a command line argument
         if max_font_count / sum_char_count < 0.35:  # the most used font should be used more than 35% of the time
-            self.logs[Error.FONT.value] += ["Can't find the main font"]
+            self.logs[Error.FONT] += ["Can't find the main font"]
 
         if not max_font_name.endswith(correct_fontname):  # the most used font should be `correct_fontname`
-            self.logs[Error.FONT.value] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
+            self.logs[Error.FONT] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
 
     def check_references(self):
         '''Check that citations have URLs, and that they have venues (not just arXiv ids)'''
@@ -167,7 +223,7 @@ class Formatter(object):
                 page_text = page.extract_text()
             except:
                 page_text = ""
-                self.logs[Error.BIB.value] += [f"Can't parse page #{i}"]
+                self.logs[Warn.BIB] += [f"Can't parse page #{i}"]
 
             lines = page_text.split('\n')
             for j, line in enumerate(lines):
@@ -188,19 +244,19 @@ class Formatter(object):
         # The following checks fail in ~60% of the papers. TODO: relax them a bit
 
         if doi_url_count < 3:
-            self.logs[Error.BIB.value] += [f"Bibliography should use ACL Anothology DOIs whenever possible. Only {doi_url_count} references do."]
+            self.logs[Warn.BIB] += [f"Bibliography should use ACL Anothology DOIs whenever possible. Only {doi_url_count} references do."]
 
         if arxiv_url_count > 0.2 * all_url_count:  # only 20% of the links are allowed to be arXiv links
-            self.logs[Error.BIB.value] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anothology DOIs instead."]
+            self.logs[Warn.BIB] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anothology DOIs instead."]
 
         if all_url_count < 5:
-            self.logs[Error.BIB.value] += [f"It appears most of the references are not using paper links. Only {all_url_count} links found."]
+            self.logs[Warn.BIB] += [f"It appears most of the references are not using paper links. Only {all_url_count} links found."]
 
         if arxiv_word_count > 10:
-            self.logs[Error.BIB.value] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
+            self.logs[Warn.BIB] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
 
         if not found_references:
-            self.logs[Error.BIB.value] += ["Couldn't find references"]
+            self.logs[Warn.BIB] += ["Couldn't find references"]
 
 
 def main():
@@ -235,8 +291,10 @@ def main():
         with Pool(args.num_workers) as p:
             list(tqdm(p.imap(worker, fileset), total=len(fileset)))
     else:
-        for submission in tqdm(fileset):
+        #for submission in tqdm(fileset):
+        for submission in fileset:
             worker(submission)
+            print();print()
 
 if __name__ == "__main__":
     main()
