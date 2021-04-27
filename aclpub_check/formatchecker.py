@@ -254,16 +254,16 @@ class Formatter(object):
         # The following checks fail in ~60% of the papers. TODO: relax them a bit
 
         if doi_url_count < 3:
-            self.logs[Warn.BIB] += [f"Bibliography should use ACL Anothology DOIs whenever possible. Only {doi_url_count} references do."]
+            self.logs[Warn.BIB] += [f"Bibliography should use ACL Anthology DOIs whenever possible. Only {doi_url_count} references do."]
 
         if arxiv_url_count > 0.2 * all_url_count:  # only 20% of the links are allowed to be arXiv links
-            self.logs[Warn.BIB] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anothology DOIs instead."]
+            self.logs[Warn.BIB] += [f"It appears you are using arXiv links more than you should ({arxiv_url_count}/{all_url_count}). Consider using ACL Anthology DOIs instead."]
 
         if all_url_count < 5:
             self.logs[Warn.BIB] += [f"It appears most of the references are not using paper links. Only {all_url_count} links found."]
 
         if arxiv_word_count > 10:
-            self.logs[Warn.BIB] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
+            self.logs[Warn.BIB] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anthology references instead."]
 
         if not found_references:
             self.logs[Warn.BIB] += ["Couldn't find any references."]
@@ -285,7 +285,7 @@ def main():
              for root, _, file_names in walk(path)
              for file_name in file_names}
     paths.update(args.submission_paths)
-
+g
     # retrive files
     fileset = sorted([p for p in paths if isfile(p) and p.endswith(".pdf")])
 
