@@ -62,17 +62,23 @@ class Formatter(object):
         #    print(f"Errors. Check {output_file} for details.")
 
 
+        errors, warnings = 0, 0
         if self.logs.items():
             for e, ms in self.logs.items():
                 for m in ms:
                     # TODO: there has to be a better way to do this
                     if  str(type(e)) == "<enum 'Error'>":
                         print(colored("Error ({0}):".format(e.value), "red")+" "+m)
+                        errors += 1
                     else:
                         print(colored("Warning ({0}):".format(e.value), "yellow")+" "+m)
+                        warnings += 1
         else:
             print(colored("All Clear!", "green"))
-            
+
+        print("We detected {0} errors and {1} warnings in your paper.".format(*(errors, warnings)))
+        print("In general, it is required that you fix errors for your paper to be published. Fixing warnings is optional, but recommended.")
+        print("Important: Some of the margin errors may be spurious. The library detects the location of images, but not whether they have a white background that blends in.")
 
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
@@ -256,7 +262,7 @@ class Formatter(object):
             self.logs[Warn.BIB] += [f"It appears you are using arXiv references more than you should ({arxiv_word_count} found). Consider using ACL Anothology references instead."]
 
         if not found_references:
-            self.logs[Warn.BIB] += ["Couldn't find references"]
+            self.logs[Warn.BIB] += ["Couldn't find any references."]
 
 
 def main():
