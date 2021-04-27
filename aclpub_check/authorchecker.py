@@ -1,15 +1,32 @@
 import argparse
+import collections
 import os
 import os.path
-import re
+import regex as re
 import unicodedata
 
 import pandas as pd
 import pdfplumber
+import unidecode
 
 
 def _clean_str(value):
-    return '' if pd.isna(value) else unicodedata.normalize('NFKC', value.strip())
+    if pd.isna(value):
+        return ''
+    # not exactly sure why, but this has to be done iteratively
+    old_value = None
+    value = value.strip()
+    while old_value != value:
+        old_value = value
+        # strip space before accent; PDF seems to introduce these
+        value = re.sub(r'\p{Zs}+(\p{Mn})', r'\1', value)
+        # combine accents with characters
+        value = unicodedata.normalize('NFKC', value)
+    return value
+
+
+def _strip_punct_accent(text):
+    return re.sub(r'\p{P}', '', unidecode.unidecode(text))
 
 
 def check_authors(submissions_path, pdfs_dir):
@@ -33,17 +50,42 @@ def check_authors(submissions_path, pdfs_dir):
                 submission_id, _ = filename.split("_", 1)
                 papers.append((int(submission_id), os.path.join(root, filename)))
 
-    failures = 0
+    problems = collections.defaultdict(list)
     for submission_id, pdf_path in sorted(papers):
         names = id_to_names[submission_id]
         pdf = pdfplumber.open(pdf_path)
-        text = _clean_str(pdf.pages[0].extract_text())[:500]
+        first_text = pdf.pages[0].extract_text()[:500]
+        text = _clean_str(first_text)
         match = re.search('.*?'.join(names), text, re.DOTALL)
         if not match:
-            failures += 1
-            print(f"{submission_id}: FAILED. can't find \"{';'.join(names)}\" in \"{text}\"\n")
+            no_case_no_punct_no_accent_match = re.search(
+                '.*?'.join(_strip_punct_accent(n) for n in names),
+                _strip_punct_accent(text), re.DOTALL | re.IGNORECASE)
+            any_name = f'({"|".join(names)})'
+            unordered_regex = f'({any_name}.*){{{len(names) - 1}}}({any_name})'
+            unordered_match = re.search(unordered_regex, text, re.DOTALL)
+            if no_case_no_punct_no_accent_match:
+                problem = 'CASE-PUNCT-ACCENT'
+                in_text = no_case_no_punct_no_accent_match.group()
+            elif unordered_match:
+                problem = 'ORDER'
+                in_text = unordered_match.group()
+            else:
+                problem = 'MISSING'
+                in_text = text
+            problems[problem].append(f"{submission_id}:\n"
+                                     f"meta=\"{' '.join(names)}\"\n"
+                                     f"pdf =\"{in_text}\"\n")
 
-    print(f"{failures} submissions failed")
+    for problem_type in sorted(problems):
+        print(problem_type)
+        for problem_text in problems[problem_type]:
+            print(problem_text)
+
+    total_problems = sum(len(texts) for texts in problems.values())
+    print(f"{total_problems} submissions failed:")
+    for problem_type in sorted(problems):
+        print(f"  {len(problems[problem_type])} {problem_type}")
 
 
 if __name__ == "__main__":
