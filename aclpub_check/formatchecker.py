@@ -52,7 +52,8 @@ class Formatter(object):
     def format_check(self, submission, paper_type):
         print(f"Checking {submission}")
 
-        self.number = submission.split("/")[-1].split("_")[0]
+        # TOOD: make this less of a hackg
+        self.number = submission.split("/")[-1].split("_")[0].replace(".pdf", "")
         self.pdf = pdfplumber.open(submission)
         self.logs = defaultdict(list)  # reset log before calling the format-checking functions
         self.page_errors = set()
@@ -65,10 +66,14 @@ class Formatter(object):
         self.check_references()
 
         # TOOD: put json dump back on
-        #output_file = submission.replace(".pdf", "_format.json")
-        #json.dump(self.logs, open(output_file, 'w'))  # always write a log file even if it is empty
-        #if self.logs:
-        #    print(f"Errors. Check {output_file} for details.")
+        output_file = "errors-{0}.json".format(self.number)
+        # string conversion for json dump
+        logs_json = {}
+        for k, v in self.logs.items():
+            logs_json[str(k)] = v
+        json.dump(logs_json, open(output_file, 'w'))  # always write a log file even if it is empty
+        if self.logs:
+            print(f"Errors. Check {output_file} for details.")
 
         errors, warnings = 0, 0
         if self.logs.items():
@@ -170,7 +175,7 @@ class Formatter(object):
                     bbox = (image["x0"], image["top"], image["x1"], image["bottom"])
                     im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
                     
-                im.save("corrections-{0}-page-{1}.png".format(*(self.number, page+1)), format="PNG")
+                im.save("errors-{0}-page-{1}.png".format(*(self.number, page+1)), format="PNG")
                 #+ "Specific text: "+str([v for k, v in pages_text.values()])]
                 
     def check_page_num(self, paper_type):
