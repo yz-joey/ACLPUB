@@ -73,12 +73,16 @@ class Formatter(object):
                     else:
                         print(colored("Warning ({0}):".format(e.value), "yellow")+" "+m)
                         warnings += 1
+                        
+            print()
+            print("We detected {0} errors and {1} warnings in your paper.".format(*(errors, warnings)))
+            print("In general, it is required that you fix errors for your paper to be published. Fixing warnings is optional, but recommended.")
+            print("Important: Some of the margin errors may be spurious. The library detects the location of images, but not whether they have a white background that blends in.")
+        
+
         else:
             print(colored("All Clear!", "green"))
 
-        print("We detected {0} errors and {1} warnings in your paper.".format(*(errors, warnings)))
-        print("In general, it is required that you fix errors for your paper to be published. Fixing warnings is optional, but recommended.")
-        print("Important: Some of the margin errors may be spurious. The library detects the location of images, but not whether they have a white background that blends in.")
 
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
