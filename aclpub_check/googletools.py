@@ -7,14 +7,14 @@ import googleapiclient.discovery
 
 
 def sheets_service():
-    """Loads credentials for Google Sheets.
+    """Loads credentials and opens a Google Sheets API client.
 
      A credentials.json file should be in the current directory.
      https://developers.google.com/workspace/guides/create-credentials
      A token.json file will be written to the current directory to avoid
      repeatedly asking the user to login.
 
-    :return: a google.oauth2.credentials.Credentials
+    :return: the Google Sheets API client
     """
     scopes = ['https://www.googleapis.com/auth/spreadsheets']
     creds = None
