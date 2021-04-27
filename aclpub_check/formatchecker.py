@@ -67,8 +67,7 @@ class Formatter(object):
         if self.logs.items():
             for e, ms in self.logs.items():
                 for m in ms:
-                    # TODO: there has to be a better way to do this
-                    if  str(type(e)) == "<enum 'Error'>":
+                    if  isinstance(e, Error):
                         print(colored("Error ({0}):".format(e.value), "red")+" "+m)
                         errors += 1
                     else:
