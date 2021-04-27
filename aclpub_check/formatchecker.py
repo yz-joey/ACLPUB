@@ -162,13 +162,19 @@ class Formatter(object):
                     if violation == Margin.RIGHT:
                         self.logs[Error.MARGIN] += ["Text on page {} bleeds into the right margin.".format(page+1)]
                         bbox = (Page.WIDTH.value-80, int(word["top"]-20), Page.WIDTH.value-20, int(word["bottom"]+20))
+                        im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
                     elif violation == Margin.LEFT:
                         self.logs[Error.MARGIN] += ["Text on page {} bleeds into the left margin.".format(page+1)]
                         bbox = (20, int(word["top"]-20), 80, int(word["bottom"]+20))
+                        im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
+                    elif violation == Margin.TOP:
+                        self.logs[Error.MARGIN] += ["Text on page {} bleeds into the top margin.".format(page+1)]
+                        bbox = (20, int(word["top"]-20), 80, int(word["bottom"]+20))
+                        im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
                     else:
-                        # TODO: top and bottom margin violations
+                        # TODO: add bottom margin violations
                         pass
-                    im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
+
 
                 for (image, violation) in pages_image[page]:
 
