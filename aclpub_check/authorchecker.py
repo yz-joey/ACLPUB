@@ -9,6 +9,8 @@ import pandas as pd
 import pdfplumber
 import unidecode
 
+import googletools
+
 
 def _clean_str(value):
     if pd.isna(value):
@@ -29,11 +31,20 @@ def _strip_punct_accent(text):
     return re.sub(r'\p{P}', '', unidecode.unidecode(text))
 
 
-def check_authors(submissions_path, pdfs_dir):
+def check_authors(
+        submissions_path,
+        pdfs_dir,
+        spreadsheet_id,
+        sheet_id,
+        id_column,
+        problem_column,
+        post=False):
     df = pd.read_csv(submissions_path, keep_default_na=False)
     id_to_names = {}
+    id_to_row = {}
     for index, row in df.iterrows():
         submission_id = row["Submission ID"]
+        id_to_row[submission_id] = index + 2
 
         # collect all authors and their affiliations
         id_to_names[submission_id] = []
@@ -51,6 +62,7 @@ def check_authors(submissions_path, pdfs_dir):
                 papers.append((int(submission_id), os.path.join(root, filename)))
 
     problems = collections.defaultdict(list)
+    row_to_problem = {}
     for submission_id, pdf_path in sorted(papers):
         names = id_to_names[submission_id]
         pdf = pdfplumber.open(pdf_path)
@@ -67,9 +79,10 @@ def check_authors(submissions_path, pdfs_dir):
             else:
                 problem = 'UNKNOWN'
                 in_text = text
-            problems[problem].append(f"{submission_id}:\n"
-                                     f"meta=\"{' '.join(names)}\"\n"
-                                     f"pdf =\"{in_text}\"\n")
+            comparison_text = f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
+            problems[problem].append(f"{submission_id}:\n{comparison_text}\n")
+            row = id_to_row[submission_id]
+            row_to_problem[row] = f"{problem}:\n{comparison_text}"
 
     for problem_type in sorted(problems):
         print(problem_type)
@@ -81,11 +94,35 @@ def check_authors(submissions_path, pdfs_dir):
     for problem_type in sorted(problems):
         print(f"  {len(problems[problem_type])} {problem_type}")
 
+    if post:
+        # open up the Google Sheet
+        values = googletools.sheets_service().spreadsheets().values()
+
+        # get the number of rows
+        id_range = f'{sheet_id}!{id_column}1:{id_column}'
+        request = values.get(spreadsheetId=spreadsheet_id, range=id_range)
+        n_rows = len(request.execute()['values'])
+
+        # fill in the problem column
+        request = values.update(
+            spreadsheetId=spreadsheet_id,
+            range=f'{sheet_id}!{problem_column}2:{problem_column}',
+            valueInputOption='RAW',
+            body={'values': [[row_to_problem.get(i, '')]
+                             for i in range(2, n_rows)]})
+        request.execute()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--submissions', dest='submissions_path',
                         default='Submission_Information.csv')
     parser.add_argument('--pdfs', dest='pdfs_dir', default='final')
+    parser.add_argument('--post', action='store_true')
+    parser.add_argument('--spreadsheet-id',
+                        default='1lQyGZNBEBwukf8-mgPzIH57xUX9y4o2OUCzpEvNpW9A')
+    parser.add_argument('--sheet-id', default='Sheet1')
+    parser.add_argument('--id-column', default='A')
+    parser.add_argument('--problem-column', default='F')
     args = parser.parse_args()
     check_authors(**vars(args))
