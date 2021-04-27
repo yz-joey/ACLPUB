@@ -29,7 +29,7 @@ class Warn(Enum):
 
 
 class Page(Enum):
-    # 595 pixels (72ppi) = 21cm 
+    # 595 pixels (72ppi) = 21cm
     WIDTH = 595
     # 842 pixels (72ppi) = 29.7cm
     HEIGHT = 842
@@ -40,9 +40,10 @@ class Margin(Enum):
     BOTTOM = "bottom"
     RIGHT = "right"
     LEFT = "left"
-    
+
     
 class Formatter(object):
+    
     def __init__(self):
         # TODO: these should be constants
         self.right_offset = 4.5
