@@ -61,17 +61,11 @@ def check_authors(submissions_path, pdfs_dir):
             no_case_no_punct_no_accent_match = re.search(
                 '.*?'.join(_strip_punct_accent(n) for n in names),
                 _strip_punct_accent(text), re.DOTALL | re.IGNORECASE)
-            any_name = f'({"|".join(names)})'
-            unordered_regex = f'({any_name}.*){{{len(names) - 1}}}({any_name})'
-            unordered_match = re.search(unordered_regex, text, re.DOTALL)
             if no_case_no_punct_no_accent_match:
                 problem = 'CASE-PUNCT-ACCENT'
                 in_text = no_case_no_punct_no_accent_match.group()
-            elif unordered_match:
-                problem = 'ORDER'
-                in_text = unordered_match.group()
             else:
-                problem = 'MISSING'
+                problem = 'UNKNOWN'
                 in_text = text
             problems[problem].append(f"{submission_id}:\n"
                                      f"meta=\"{' '.join(names)}\"\n"
