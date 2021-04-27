@@ -12,6 +12,7 @@ setup(
     install_requires=[
         'pdfplumber',
         'tqdm',
+        'termcolor'
     ],
     entry_points={
         'console_scripts': ['aclpub_check=aclpub_check.formatchecker:main'],
