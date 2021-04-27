@@ -164,7 +164,7 @@ class Formatter(object):
                         bbox = (Page.WIDTH.value-80, int(word["top"]-20), Page.WIDTH.value-20, int(word["bottom"]+20))
                     elif violation == Margin.LEFT:
                         self.logs[Error.MARGIN] += ["Text on page {} bleeds into the left margin.".format(page+1)]
-                        bbox = (20, int(word["top"]-20), 80, int(word["botom"]+20))
+                        bbox = (20, int(word["top"]-20), 80, int(word["bottom"]+20))
                     else:
                         # TODO: top and bottom margin violations
                         pass
