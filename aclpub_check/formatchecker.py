@@ -291,10 +291,10 @@ def main():
         with Pool(args.num_workers) as p:
             list(tqdm(p.imap(worker, fileset), total=len(fileset)))
     else:
+        # TODO: make the tqdm togglable
         #for submission in tqdm(fileset):
         for submission in fileset:
             worker(submission)
-            print();print()
 
 if __name__ == "__main__":
     main()
