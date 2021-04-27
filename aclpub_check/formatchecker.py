@@ -34,6 +34,13 @@ class Page(Enum):
     # 842 pixels (72ppi) = 29.7cm
     HEIGHT = 842
 
+
+class Margin(Enum):
+    TOP = "top"
+    BOTTOM = "bottom"
+    RIGHT = "right"
+    LEFT = "left"
+    
     
 class Formatter(object):
     def __init__(self):
@@ -83,7 +90,6 @@ class Formatter(object):
         else:
             print(colored("All Clear!", "green"))
 
-
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
 
@@ -110,17 +116,29 @@ class Formatter(object):
                 # Parse images
                 # 57 pixels (72ppi) = 2cm; 71 pixels (72ppi) = 2.5cm.
                 for image in p.images:
-                    if float(image["top"]) < (57-self.top_offset) or \
-                       float(image["x0"]) < (71-self.left_offset) or \
-                       Page.WIDTH.value-float(image["x1"]) < (71-self.right_offset):
-                        pages_image[i] += [image]
+                    violation = None
+                    if float(word["top"]) < (57-self.top_offset):
+                        violation = Margin.TOP
+                    elif float(word["x0"]) < (71-self.left_offset):
+                        violation = Margin.LEFT
+                    elif Page.WIDTH.value-float(word["x1"]) < (71-self.right_offset):
+                        violation = Margin.RIGHT
+
+                    if violation:
+                        pages_image[i] += [(image, violation)]
 
                 # Parse texts
                 for j, word in enumerate(p.extract_words()):
-                    if float(word["top"]) < (57-self.top_offset) or \
-                       float(word["x0"]) < (71-self.left_offset) or \
-                       Page.WIDTH.value-float(word["x1"]) < (71-self.right_offset):
-                        pages_text[i] += [word]
+                    violation = None
+                    if float(word["top"]) < (57-self.top_offset):
+                        violation = Margin.TOP
+                    elif float(word["x0"]) < (71-self.left_offset):
+                        violation = Margin.LEFT
+                    elif Page.WIDTH.value-float(word["x1"]) < (71-self.right_offset):
+                        violation = Margin.RIGHT
+                        
+                    if violation:
+                        pages_text[i] += [(word, violation)]
             except:
                 perror.append(i)
 
@@ -132,32 +150,23 @@ class Formatter(object):
             pages = sorted(set(pages_text.keys()).union(set((pages_image.keys()))))
             for page in pages:
                 im = self.pdf.pages[page].to_image(resolution=150)
-                for word in pages_text[page]:
+                for (word, violation) in pages_text[page]:
 
-                    # error
-                    self.logs[Error.MARGIN] += ["Text on page {} bleeds into the margin.".format(page+1)]
-
-                    # image
-                    x0 = word["x0"]
-                    top = word["top"]
-                    bot = word["bottom"]
-
-                    # TODO: this logic is broken for tables
                     bbox = None
-                    if x0 >= Page.WIDTH.value /2:
-                        # right margin violation
-                        bbox = (Page.WIDTH.value-80, int(top-20), Page.WIDTH.value-20, int(bot+20))
+                    if violation == Margin.RIGHT:
+                        self.logs[Error.MARGIN] += ["Text on page {} bleeds into the right margin.".format(page+1)]
+                        bbox = (Page.WIDTH.value-80, int(word["top"]-20), Page.WIDTH.value-20, int(word["bottom"]+20))
+                    elif violation == Margin.LEFT:
+                        self.logs[Error.MARGIN] += ["Text on page {} bleeds into the left margin.".format(page+1)]
+                        bbox = (20, int(word["top"]-20), 80, int(word["botom"]+20))
                     else:
-                        # left margin violation
-                        bbox = (20, int(top-20), 80, int(bot+20))
+                        # TODO: top and bottom margin violations
+                        pass
                     im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
 
-                for image in pages_image[page]:
+                for (image, violation) in pages_image[page]:
 
-                    # error
                     self.logs[Error.MARGIN] += ["An image on page {} bleeds into the margin.".format(page+1)]
-                    
-                    # image
                     bbox = (image["x0"], image["top"], image["x1"], image["bottom"])
                     im.draw_rect(bbox, fill=None, stroke="red", stroke_width=5)
                     
