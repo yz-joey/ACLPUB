@@ -285,7 +285,7 @@ def main():
              for root, _, file_names in walk(path)
              for file_name in file_names}
     paths.update(args.submission_paths)
-g
+
     # retrive files
     fileset = sorted([p for p in paths if isfile(p) and p.endswith(".pdf")])
 
