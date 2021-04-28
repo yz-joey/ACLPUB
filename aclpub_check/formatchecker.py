@@ -74,7 +74,7 @@ class Formatter(object):
             logs_json[str(k)] = v
         json.dump(logs_json, open(output_file, 'w'))  # always write a log file even if it is empty
         if self.logs:
-            print(f"Errors. Check {output_file} for details.")
+            print(f"Errors. Check {output_gfile} for details.")
 
         errors, warnings = 0, 0
         if self.logs.items():
@@ -96,7 +96,7 @@ class Formatter(object):
                 error_text = "error"
             warning_text = "warnings"
             if warnings == 1:
-                warning_text = "warning"
+                warning_text = "warning"xs
 
             # display to user
             print()
@@ -135,11 +135,11 @@ class Formatter(object):
                 # 57 pixels (72ppi) = 2cm; 71 pixels (72ppi) = 2.5cm.
                 for image in p.images:
                     violation = None
-                    if float(word["top"]) < (57-self.top_offset):
+                    if float(image["top"]) < (57-self.top_offset):
                         violation = Margin.TOP
-                    elif float(word["x0"]) < (71-self.left_offset):
+                    elif float(image["x0"]) < (71-self.left_offset):
                         violation = Margin.LEFT
-                    elif Page.WIDTH.value-float(word["x1"]) < (71-self.right_offset):
+                    elif Page.WIDTH.value-float(image["x1"]) < (71-self.right_offset):
                         violation = Margin.RIGHT
 
                     if violation:
