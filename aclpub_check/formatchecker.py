@@ -80,9 +80,11 @@ class Formatter(object):
         if self.logs.items():
             for e, ms in self.logs.items():
                 for m in ms:
-                    if  isinstance(e, Error):
+                    if isinstance(e, Error) and e != Error.PARSING:
                         print(colored("Error ({0}):".format(e.value), "red")+" "+m)
                         errors += 1
+                    elif e == Error.PARSING:
+                        print(colored("Parsing Error:".format(e.value), "yellow")+" "+m)
                     else:
                         print(colored("Warning ({0}):".format(e.value), "yellow")+" "+m)
                         warnings += 1
@@ -150,7 +152,7 @@ class Formatter(object):
 
         if perror:
             self.page_errors.update(perror)
-            #self.logs[Error.PARSING] = ["Error occurs when parsing page {}.".format(perror)]
+            self.logs[Error.PARSING] = ["Error occurs when parsing page {}.".format(perror)]
 
         if pages_text or pages_image:
             pages = sorted(set(pages_text.keys()).union(set((pages_image.keys()))))
