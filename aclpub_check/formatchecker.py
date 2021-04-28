@@ -89,8 +89,18 @@ class Formatter(object):
                         print(colored("Warning ({0}):".format(e.value), "yellow")+" "+m)
                         warnings += 1
                         
+
+            # English nominal morphologyg
+            error_text = "errors"
+            if errors == 1:
+                error_text = "error"
+            warning_text = "warnings"
+            if warnings == 1:
+                warning_text = "warning"
+
+            # display to user
             print()
-            print("We detected {0} errors and {1} warnings in your paper.".format(*(errors, warnings)))
+            print("We detected {0} {1} and {2} {3} in your paper.".format(*(errors, error_text, warnings, warning_text)))
             print("In general, it is required that you fix errors for your paper to be published. Fixing warnings is optional, but recommended.")
             print("Important: Some of the margin errors may be spurious. The library detects the location of images, but not whether they have a white background that blends in.")
         
