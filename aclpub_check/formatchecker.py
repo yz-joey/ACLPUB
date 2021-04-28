@@ -49,6 +49,7 @@ class Formatter(object):
         self.right_offset = 4.5
         self.left_offset = 2
         self.top_offset = 1
+        
 
     def format_check(self, submission, paper_type):
         print(f"Checking {submission}")
@@ -90,7 +91,7 @@ class Formatter(object):
                         warnings += 1
                         
 
-            # English nominal morphologyg
+            # English nominal morphology
             error_text = "errors"
             if errors == 1:
                 error_text = "error"
@@ -108,6 +109,7 @@ class Formatter(object):
         else:
             print(colored("All Clear!", "green"))
 
+            
     def check_page_size(self):
         '''Checks the paper size (A4) of each pages in the submission.'''
 
@@ -121,6 +123,7 @@ class Formatter(object):
             self.logs[Error.SIZE] += [error]
         self.page_errors.update(pages)
 
+        
     def check_page_margin(self):
         '''Checks if any text or figure is in the margin of pages.'''
 
@@ -196,6 +199,7 @@ class Formatter(object):
                     
                 im.save("errors-{0}-page-{1}.png".format(*(self.number, page+1)), format="PNG")
                 #+ "Specific text: "+str([v for k, v in pages_text.values()])]
+
                 
     def check_page_num(self, paper_type):
         '''Check if the paper exceeds the page limit.'''
@@ -232,6 +236,7 @@ class Formatter(object):
                                       f"Acknowledgments, Ethics) was found on "
                                       f"page {page}, line {line}."]
 
+            
     def check_font(self):
         '''Check the font'''
 
@@ -252,6 +257,7 @@ class Formatter(object):
         if not max_font_name.endswith(correct_fontname):  # the most used font should be `correct_fontname`
             self.logs[Error.FONT] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
 
+            
     def check_references(self):
         '''Check that citations have URLs, and that they have venues (not just arXiv ids)'''
 
