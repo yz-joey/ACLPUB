@@ -40,6 +40,8 @@ def check_authors(
     id_to_row = {}
     for index, row in df.iterrows():
         submission_id = row["Submission ID"]
+
+        # row in the spreadsheet is 1-based and first row is the header
         id_to_row[submission_id] = index + 2
 
         # collect all authors and their affiliations
@@ -50,6 +52,7 @@ def check_authors(
                 if name_part:
                     id_to_names[submission_id].extend(name_part.split())
 
+    # find all PDFs corresponding to main papers
     papers = []
     for root, _, filenames in os.walk(pdfs_dir):
         for filename in filenames:
@@ -57,15 +60,24 @@ def check_authors(
                 submission_id, _ = filename.split("_", 1)
                 papers.append((int(submission_id), os.path.join(root, filename)))
 
+    # check for expected author names in each paper
     problems = collections.defaultdict(list)
     row_to_problem = {}
     for submission_id, pdf_path in sorted(papers):
         names = id_to_names[submission_id]
         pdf = pdfplumber.open(pdf_path)
-        first_text = pdf.pages[0].extract_text()[:500]
-        text = _clean_str(first_text)
+
+        # assumes authors can be found in the first 500 characters
+        text = _clean_str(pdf.pages[0].extract_text()[:500])
+
+        # check for author names in the expected order, allowing for
+        # punctuation, affiliations, etc. between names
+        # NOTE: only removed or re-ordered (not added) authors will be caught
         match = re.search('.*?'.join(names), text, re.DOTALL)
         if not match:
+
+            # check if there is a match when ignoring case, punctuation, accents
+            # since this is the most common type of error
             allowed_chars = r'[\p{Zs}\p{p}\p{Mn}]'
             match_ignoring_case_punct_accent = re.search(
                 '.*?'.join(
@@ -82,23 +94,27 @@ def check_authors(
             else:
                 problem = 'UNKNOWN'
                 in_text = text
+
+            # format the problem both for stdout and for the spreadsheet
             comparison_text = f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
             problems[problem].append(f"{submission_id}:\n{comparison_text}\n")
             row = id_to_row[submission_id]
             row_to_problem[row] = f"{problem}:\n{comparison_text}"
 
+    # print all problems, grouped by type of problem
     for problem_type in sorted(problems):
         print(problem_type)
         for problem_text in problems[problem_type]:
             print(problem_text)
 
+    # report overall problem statistics
     total_problems = sum(len(texts) for texts in problems.values())
     print(f"{total_problems} submissions failed:")
     for problem_type in sorted(problems):
         print(f"  {len(problems[problem_type])} {problem_type}")
 
+    # if requested, post problems to the Google Sheet
     if post:
-        # open up the Google Sheet
         values = googletools.sheets_service().spreadsheets().values()
 
         # get the number of rows
