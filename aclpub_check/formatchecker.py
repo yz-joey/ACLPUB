@@ -131,7 +131,7 @@ class Formatter(object):
         pages_text = defaultdict(list)
         perror = []
         for i, p in enumerate(self.pdf.pages):
-            if i in self.page_errors:
+            if i+1 in self.page_errors:
                 continue
             try:
                 # Parse images
@@ -161,7 +161,7 @@ class Formatter(object):
                     if violation:
                         pages_text[i] += [(word, violation)]
             except:
-                perror.append(i)
+                perror.append(i+1)
 
         if perror:
             self.page_errors.update(perror)
