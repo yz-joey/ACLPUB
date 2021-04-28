@@ -74,7 +74,7 @@ class Formatter(object):
             logs_json[str(k)] = v
         json.dump(logs_json, open(output_file, 'w'))  # always write a log file even if it is empty
         if self.logs:
-            print(f"Errors. Check {output_gfile} for details.")
+            print(f"Errors. Check {output_file} for details.")
 
         errors, warnings = 0, 0
         if self.logs.items():
@@ -96,7 +96,7 @@ class Formatter(object):
                 error_text = "error"
             warning_text = "warnings"
             if warnings == 1:
-                warning_text = "warning"xs
+                warning_text = "warning"
 
             # display to user
             print()
