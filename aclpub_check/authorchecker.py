@@ -27,10 +27,6 @@ def _clean_str(value):
     return value
 
 
-def _strip_punct_accent(text):
-    return re.sub(r'\p{P}', '', unidecode.unidecode(text))
-
-
 def check_authors(
         submissions_path,
         pdfs_dir,
@@ -70,12 +66,19 @@ def check_authors(
         text = _clean_str(first_text)
         match = re.search('.*?'.join(names), text, re.DOTALL)
         if not match:
-            no_case_no_punct_no_accent_match = re.search(
-                '.*?'.join(_strip_punct_accent(n) for n in names),
-                _strip_punct_accent(text), re.DOTALL | re.IGNORECASE)
-            if no_case_no_punct_no_accent_match:
+            allowed_chars = r'[\p{Zs}\p{p}\p{Mn}]'
+            match_ignoring_case_punct_accent = re.search(
+                '.*?'.join(
+                    fr'{allowed_chars}*'.join(unidecode.unidecode(c) for c in p)
+                    for part in names for p in re.split(allowed_chars, part)),
+                unidecode.unidecode(text),
+                re.DOTALL | re.IGNORECASE)
+            if match_ignoring_case_punct_accent:
                 problem = 'CASE-PUNCT-ACCENT'
-                in_text = no_case_no_punct_no_accent_match.group()
+                # these offsets may be slightly incorrect because unidecode may
+                # change the number of characters, but it should be close enough
+                start, end = match_ignoring_case_punct_accent.span()
+                in_text = text[start: end]
             else:
                 problem = 'UNKNOWN'
                 in_text = text
