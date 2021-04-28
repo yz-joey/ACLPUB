@@ -308,7 +308,14 @@ class Formatter(object):
             self.logs[Warn.BIB] += ["Couldn't find any references."]
 
 
+args = None
+def worker(pdf_path):
+    """ process one pdf """
+    Formatter().format_check(submission=pdf_path, paper_type=args.paper_type)
+
+
 def main():
+    global args
     parser = argparse.ArgumentParser()
     parser.add_argument('submission_paths', metavar='file_or_dir', nargs='+',
                         default=[])
@@ -331,10 +338,6 @@ def main():
     if not fileset:
         print(f"No PDF files found in {paths}")
 
-    def worker(pdf_path):
-        """ process one pdf """
-        Formatter().format_check(submission=pdf_path, paper_type=args.paper_type)
-        
     if args.num_workers > 1:
         from multiprocessing.pool import Pool
         with Pool(args.num_workers) as p:
