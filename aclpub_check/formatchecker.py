@@ -247,7 +247,7 @@ class Formatter(object):
                 for char in page.chars:
                     fonts[char['fontname']] += 1
             except:
-                self.logs[Error.FONT] += [f"Can't parse page #{i}"]
+                self.logs[Error.FONT] += [f"Can't parse page #{i+1}"]
         max_font_count, max_font_name = max((count, name) for name, count in fonts.items())  # find most used font
         sum_char_count = sum(fonts.values())
         # TODO: make this a command line argument
@@ -272,7 +272,7 @@ class Formatter(object):
                 page_text = page.extract_text()
             except:
                 page_text = ""
-                self.logs[Warn.BIB] += [f"Can't parse page #{i}"]
+                self.logs[Warn.BIB] += [f"Can't parse page #{i+1}"]
 
             lines = page_text.split('\n')
             for j, line in enumerate(lines):
