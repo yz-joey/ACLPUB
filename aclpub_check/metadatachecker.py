@@ -4,6 +4,7 @@ import os
 import os.path
 import regex as re
 import unicodedata
+import textwrap
 
 import pandas as pd
 import pdfplumber
@@ -27,6 +28,34 @@ def _clean_str(value):
     return value
 
 
+def yield_author_problems(names, text):
+    # check for author names in the expected order, allowing for
+    # punctuation, affiliations, etc. between names
+    # NOTE: only removed or re-ordered (not added) authors will be caught
+    match = re.search('.*?'.join(names), text, re.DOTALL)
+    if not match:
+
+        # check if there is a match when ignoring case, punctuation, accents
+        # since this is the most common type of error
+        allowed_chars = r'[\p{Zs}\p{p}\p{Mn}]'
+        match_ignoring_case_punct_accent = re.search(
+            '.*?'.join(
+                fr'{allowed_chars}*'.join(unidecode.unidecode(c) for c in p)
+                for part in names for p in re.split(allowed_chars, part)),
+            unidecode.unidecode(text),
+            re.DOTALL | re.IGNORECASE)
+        if match_ignoring_case_punct_accent:
+            problem = 'AUTHOR-MISMATCH-CASE-PUNCT-ACCENT'
+            # these offsets may be slightly incorrect because unidecode may
+            # change the number of characters, but it should be close enough
+            start, end = match_ignoring_case_punct_accent.span()
+            in_text = text[start: end]
+        else:
+            problem = 'AUTHOR-MISMATCH'
+            in_text = text
+        yield problem, f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
+
+
 def check_metadata(
         submissions_path,
         pdfs_dir,
@@ -44,12 +73,15 @@ def check_metadata(
                 submission_id, _ = filename.split("_", 1)
                 id_to_pdf[int(submission_id)] = os.path.join(root, filename)
 
-    problems = collections.defaultdict(list)
-    row_to_problem = {}
+    id_to_sheet_row = {}
+    problems = collections.defaultdict(lambda: collections.defaultdict(list))
 
     df = pd.read_csv(submissions_path, keep_default_na=False)
     for index, row in df.iterrows():
         submission_id = row["Submission ID"]
+
+        # row in the spreadsheet is 1-based and first row is the header
+        id_to_sheet_row[submission_id] = index + 2
 
         # open the PDF
         pdf_path = id_to_pdf[submission_id]
@@ -66,49 +98,25 @@ def check_metadata(
                 if name_part:
                     names.extend(name_part.split())
 
-        # check for author names in the expected order, allowing for
-        # punctuation, affiliations, etc. between names
-        # NOTE: only removed or re-ordered (not added) authors will be caught
-        match = re.search('.*?'.join(names), text, re.DOTALL)
-        if not match:
-
-            # check if there is a match when ignoring case, punctuation, accents
-            # since this is the most common type of error
-            allowed_chars = r'[\p{Zs}\p{p}\p{Mn}]'
-            match_ignoring_case_punct_accent = re.search(
-                '.*?'.join(
-                    fr'{allowed_chars}*'.join(unidecode.unidecode(c) for c in p)
-                    for part in names for p in re.split(allowed_chars, part)),
-                unidecode.unidecode(text),
-                re.DOTALL | re.IGNORECASE)
-            if match_ignoring_case_punct_accent:
-                problem = 'CASE-PUNCT-ACCENT'
-                # these offsets may be slightly incorrect because unidecode may
-                # change the number of characters, but it should be close enough
-                start, end = match_ignoring_case_punct_accent.span()
-                in_text = text[start: end]
-            else:
-                problem = 'UNKNOWN'
-                in_text = text
-
-            # format the problem both for stdout and for the spreadsheet
-            comparison_text = f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
-            problems[problem].append(f"{submission_id}:\n{comparison_text}\n")
-
-            # row in the spreadsheet is 1-based and first row is the header
-            row_to_problem[index + 2] = f"{problem}:\n{comparison_text}"
+        for problem_type, problem_text in yield_author_problems(names, text):
+            problems[submission_id][problem_type].append(problem_text)
 
     # print all problems, grouped by type of problem
-    for problem_type in sorted(problems):
-        print(problem_type)
-        for problem_text in problems[problem_type]:
-            print(problem_text)
+    for submission_id in sorted(problems):
+        for problem_type in sorted(problems[submission_id]):
+            problem_text = '\n'.join(problems[submission_id][problem_type])
+            problem_text = textwrap.indent(problem_text, '  ')
+            print(f'{submission_id}:{problem_type}:\n{problem_text}\n')
 
     # report overall problem statistics
-    total_problems = sum(len(texts) for texts in problems.values())
-    print(f"{total_problems} submissions failed:")
-    for problem_type in sorted(problems):
-        print(f"  {len(problems[problem_type])} {problem_type}")
+    print(f"{len(problems)} submissions failed:")
+    problem_counts = collections.Counter(
+        problem_type
+        for type_texts in problems.values()
+        for problem_type in type_texts.keys()
+    )
+    for problem_type in sorted(problem_counts.keys()):
+        print(f"  {problem_counts[problem_type]} {problem_type}")
 
     # if requested, post problems to the Google Sheet
     if post:
@@ -119,12 +127,19 @@ def check_metadata(
         request = values.get(spreadsheetId=spreadsheet_id, range=id_range)
         n_rows = len(request.execute()['values'])
 
+        sheet_row_to_problems = collections.defaultdict(list)
+        for submission_id, type_texts in problems.items():
+            for problem_type, texts in type_texts.items():
+                problems = '\n'.join(texts)
+                sheet_row_to_problems[id_to_sheet_row[submission_id]].append(
+                    f'{problem_type}:\n{problems}')
+
         # fill in the problem column
         request = values.update(
             spreadsheetId=spreadsheet_id,
             range=f'{sheet_id}!{problem_column}2:{problem_column}',
             valueInputOption='RAW',
-            body={'values': [[row_to_problem.get(i, '')]
+            body={'values': [['\n'.join(sheet_row_to_problems.get(i, []))]
                              for i in range(2, n_rows)]})
         request.execute()
 
