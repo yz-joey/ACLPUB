@@ -1,5 +1,6 @@
 import argparse
 import collections
+import itertools
 import os
 import os.path
 import regex as re
@@ -56,6 +57,28 @@ def yield_author_problems(names, text):
         yield problem, f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
 
 
+def yield_copyright_problems(signature, org_name, org_address):
+    if not signature:
+        yield "COPYRIGHT", "The signature is missing."
+    elif signature == "NA":
+        yield "COPYRIGHT", f'The signature "{signature}" must be accompanied ' \
+                           f'by a "License to Publish" or equivalent.'
+    elif len(signature) < 3 or len(signature.split()) < 2:
+        yield "COPYRIGHT", f'The signature "{signature}" does not appear to ' \
+                           f'be a full name.'
+    if not org_name:
+        yield "COPYRIGHT", "The organization name is missing."
+    elif len(org_name) < 5 and org_name not in {'IBM'}:
+        yield "COPYRIGHT", f'The organization name "{org_name}" does not ' \
+                           f'appear to be a full name. '
+    if not org_address:
+        yield "COPYRIGHT", "The organization address is missing."
+    elif len(org_address) < 3 or len(org_address.split()) < 2:
+        org_address_simple = org_address.replace("\n", " ")
+        yield "COPYRIGHT", f'The organization address "{org_address_simple}" ' \
+                           f'does not appear to be a complete physical address.'
+
+
 def check_metadata(
         submissions_path,
         pdfs_dir,
@@ -80,6 +103,13 @@ def check_metadata(
     for index, row in df.iterrows():
         submission_id = row["Submission ID"]
 
+        # NOTE: These were the names in the custom final submission form
+        # for NAACL 2021. Names and structure may be different depending
+        # on your final submission form.
+        signature = _clean_str(row["copyrightSig"])
+        org_name = _clean_str(row["orgName"])
+        org_address = _clean_str(row["orgAddress"])
+
         # row in the spreadsheet is 1-based and first row is the header
         id_to_sheet_row[submission_id] = index + 2
 
@@ -98,7 +128,10 @@ def check_metadata(
                 if name_part:
                     names.extend(name_part.split())
 
-        for problem_type, problem_text in yield_author_problems(names, text):
+        # collect all problems
+        for problem_type, problem_text in itertools.chain(
+                yield_author_problems(names, text),
+                yield_copyright_problems(signature, org_name, org_address)):
             problems[submission_id][problem_type].append(problem_text)
 
     # print all problems, grouped by type of problem
@@ -154,6 +187,6 @@ if __name__ == "__main__":
                         default='1lQyGZNBEBwukf8-mgPzIH57xUX9y4o2OUCzpEvNpW9A')
     parser.add_argument('--sheet-id', default='Sheet1')
     parser.add_argument('--id-column', default='A')
-    parser.add_argument('--problem-column', default='F')
+    parser.add_argument('--problem-column', default='E')
     args = parser.parse_args()
     check_metadata(**vars(args))
