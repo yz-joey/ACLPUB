@@ -27,7 +27,7 @@ def _clean_str(value):
     return value
 
 
-def check_authors(
+def check_metadata(
         submissions_path,
         pdfs_dir,
         spreadsheet_id,
@@ -35,40 +35,36 @@ def check_authors(
         id_column,
         problem_column,
         post=False):
-    df = pd.read_csv(submissions_path, keep_default_na=False)
-    id_to_names = {}
-    id_to_row = {}
-    for index, row in df.iterrows():
-        submission_id = row["Submission ID"]
 
-        # row in the spreadsheet is 1-based and first row is the header
-        id_to_row[submission_id] = index + 2
-
-        # collect all authors and their affiliations
-        id_to_names[submission_id] = []
-        for i in range(1, 25):
-            for x in ['First', 'Middle', 'Last']:
-                name_part = _clean_str(row[f'{i}: {x} Name'])
-                if name_part:
-                    id_to_names[submission_id].extend(name_part.split())
-
-    # find all PDFs corresponding to main papers
-    papers = []
+    # map submission IDs to PDF paths
+    id_to_pdf = {}
     for root, _, filenames in os.walk(pdfs_dir):
         for filename in filenames:
             if filename.endswith("_Paper.pdf"):
                 submission_id, _ = filename.split("_", 1)
-                papers.append((int(submission_id), os.path.join(root, filename)))
+                id_to_pdf[int(submission_id)] = os.path.join(root, filename)
 
-    # check for expected author names in each paper
     problems = collections.defaultdict(list)
     row_to_problem = {}
-    for submission_id, pdf_path in sorted(papers):
-        names = id_to_names[submission_id]
+
+    df = pd.read_csv(submissions_path, keep_default_na=False)
+    for index, row in df.iterrows():
+        submission_id = row["Submission ID"]
+
+        # open the PDF
+        pdf_path = id_to_pdf[submission_id]
         pdf = pdfplumber.open(pdf_path)
 
-        # assumes authors can be found in the first 500 characters
+        # assumes metadata can be found in the first 500 characters
         text = _clean_str(pdf.pages[0].extract_text()[:500])
+
+        # collect all authors and their affiliations
+        names = []
+        for i in range(1, 25):
+            for x in ['First', 'Middle', 'Last']:
+                name_part = _clean_str(row[f'{i}: {x} Name'])
+                if name_part:
+                    names.extend(name_part.split())
 
         # check for author names in the expected order, allowing for
         # punctuation, affiliations, etc. between names
@@ -98,8 +94,9 @@ def check_authors(
             # format the problem both for stdout and for the spreadsheet
             comparison_text = f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
             problems[problem].append(f"{submission_id}:\n{comparison_text}\n")
-            row = id_to_row[submission_id]
-            row_to_problem[row] = f"{problem}:\n{comparison_text}"
+
+            # row in the spreadsheet is 1-based and first row is the header
+            row_to_problem[index + 2] = f"{problem}:\n{comparison_text}"
 
     # print all problems, grouped by type of problem
     for problem_type in sorted(problems):
@@ -144,4 +141,4 @@ if __name__ == "__main__":
     parser.add_argument('--id-column', default='A')
     parser.add_argument('--problem-column', default='F')
     args = parser.parse_args()
-    check_authors(**vars(args))
+    check_metadata(**vars(args))
