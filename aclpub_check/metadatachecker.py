@@ -17,6 +17,11 @@ import googletools
 def _clean_str(value):
     if pd.isna(value):
         return ''
+    # uncurl all quotes
+    value = re.sub(r'[\u2018\u2019]', "'", value)
+    value = re.sub(r'[\u201C\u201D]', '"', value)
+    # use simple dashes
+    value = re.sub(r'[\u2013\u2014]', "-", value)
     # not exactly sure why, but this has to be done iteratively
     old_value = None
     value = value.strip()
@@ -55,6 +60,24 @@ def yield_author_problems(names, text):
             problem = 'AUTHOR-MISMATCH'
             in_text = text
         yield problem, f"meta=\"{' '.join(names)}\"\npdf =\"{in_text}\""
+
+
+def yield_title_problems(title, text):
+    # ignore spaces and some LaTeX-isms
+    title_chars = re.sub(r'[\s{}$^]', '', title.replace('--', '-'))
+    title_regex = r'\s*'.join(re.escape(c) for c in title_chars)
+    match = re.search(title_regex, text)
+    if not match:
+
+        # check for the common situation that the only difference is casing
+        match_ignoring_case = re.search(title_regex, text, re.IGNORECASE)
+        if match_ignoring_case:
+            problem_type = 'TITLE-CASE'
+            in_text = match_ignoring_case.group()
+        else:
+            problem_type = 'TITLE'
+            in_text = text
+        yield problem_type, f"meta=\"{title}\"\npdf =\"{in_text}\""
 
 
 def yield_copyright_problems(signature, org_name, org_address):
@@ -102,6 +125,7 @@ def check_metadata(
     df = pd.read_csv(submissions_path, keep_default_na=False)
     for index, row in df.iterrows():
         submission_id = row["Submission ID"]
+        title = _clean_str(row["Title"])
 
         # NOTE: These were the names in the custom final submission form
         # for NAACL 2021. Names and structure may be different depending
@@ -131,6 +155,7 @@ def check_metadata(
         # collect all problems
         for problem_type, problem_text in itertools.chain(
                 yield_author_problems(names, text),
+                yield_title_problems(title, text),
                 yield_copyright_problems(signature, org_name, org_address)):
             problems[submission_id][problem_type].append(problem_text)
 
