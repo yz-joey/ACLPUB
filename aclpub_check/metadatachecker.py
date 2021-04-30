@@ -66,18 +66,11 @@ def yield_title_problems(title, text):
     # ignore spaces and some LaTeX-isms
     title_chars = re.sub(r'[\s{}$^]', '', title.replace('--', '-'))
     title_regex = r'\s*'.join(re.escape(c) for c in title_chars)
-    match = re.search(title_regex, text)
-    if not match:
 
-        # check for the common situation that the only difference is casing
-        match_ignoring_case = re.search(title_regex, text, re.IGNORECASE)
-        if match_ignoring_case:
-            problem_type = 'TITLE-CASE'
-            in_text = match_ignoring_case.group()
-        else:
-            problem_type = 'TITLE'
-            in_text = text
-        yield problem_type, f"meta=\"{title}\"\npdf =\"{in_text}\""
+    # ignore differences in case; LaTeX \sc comes out as caps in PDF
+    match = re.search(title_regex, text, re.IGNORECASE)
+    if not match:
+        yield 'TITLE', f"meta=\"{title}\"\npdf =\"{text}\""
 
 
 def yield_copyright_problems(signature, org_name, org_address):
