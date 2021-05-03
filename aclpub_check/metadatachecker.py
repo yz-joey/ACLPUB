@@ -174,9 +174,15 @@ def check_metadata(
         values = googletools.sheets_service().spreadsheets().values()
 
         # get the number of rows
-        id_range = f'{sheet_id}!{id_column}1:{id_column}'
+        id_range = f'{sheet_id}!{id_column}2:{id_column}'
         request = values.get(spreadsheetId=spreadsheet_id, range=id_range)
-        n_rows = len(request.execute()['values'])
+        submission_ids = {int(value) for [value] in request.execute()['values']}
+        if submission_ids != id_to_sheet_row.keys():
+            raise ValueError(f'in Google sheet only: '
+                             f'{submission_ids - id_to_sheet_row.keys()}; '
+                             f'in START sheet only: '
+                             f'{id_to_sheet_row.keys() - submission_ids}')
+        n_rows = len(submission_ids) + 1
 
         sheet_row_to_problems = collections.defaultdict(list)
         for submission_id, type_texts in problems.items():
