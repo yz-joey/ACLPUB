@@ -40,6 +40,14 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
              block,
              session,
              date_and_time] = row
+
+            # strip emails from author list (only included in TACL entries)
+            if 'TACL' in submission_id:
+                authors = ", ".join(
+                    author_email.rsplit(maxsplit=1)[0].rstrip(":,")
+                    for author_email in authors.split("; "))
+
+            # map block+session to paper info
             paper = submission_id, authors, title
             session_to_papers[block, session].append(paper)
         except ValueError:
@@ -76,8 +84,7 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
             if submission_id.isdigit():
                 order_lines.append(f"{submission_id} # {title}")
             else:
-                order_lines.append(f"+ {submission_id} {title} by {authors}")
-
+                order_lines.append(f"! [{submission_id}] {title} %by {authors}")
 
     # return the constructed order file
     return "\n".join(order_lines) + "\n"
