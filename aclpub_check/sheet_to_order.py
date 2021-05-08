@@ -48,7 +48,7 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
                     for author_email in authors.split("; "))
 
             # map block+session to paper info
-            paper = submission_id, authors, title
+            paper = submission_id, authors, title, group
             session_to_papers[block, session].append(paper)
         except ValueError:
             logging.warning(f"Invalid row: {row}")
@@ -75,11 +75,19 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
             order_lines.append(date.strftime("* %a %d %b %Y"))
             old_day_name = day_name
 
+        # check paper group.
+        group = list(set([p[-1] for p in session_to_papers[block, session]]))
+        try: 
+            assert group[0] == paper_group.replace(" (US)", "")
+        except:
+            paper_group = group[0]
+            logging.error("Mismatched group in block{}, session{}.".format(block, session))
+            
         # add a session entry
         order_lines.append(f"= {start_time}--{end_time} {paper_group}")
 
         # add an entry for each paper
-        for submission_id, authors, title in session_to_papers[block, session]:
+        for submission_id, authors, title, _ in session_to_papers[block, session]:
             # for regular papers, add them by submission number
             if submission_id.isdigit():
                 order_lines.append(f"{submission_id} # {title}")
