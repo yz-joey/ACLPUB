@@ -62,6 +62,7 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
          session,
          date_and_time,
          friendly_time_zones,
+         session_title,
          paper_group] = row
 
         # calculate the date and time of this session
@@ -103,7 +104,7 @@ if __name__ == "__main__":
     parser.add_argument('--spreadsheet-id',
                         default='14ebEFK6egReR2Y_6BxdMO6V_LZoOMhqk1OGYNUYpLI0')
     parser.add_argument('--papers-range', default='Final-AllPaperTimes!A:L')
-    parser.add_argument('--sessions-range', default='Detailed Schedule!A:E')
+    parser.add_argument('--sessions-range', default='Detailed Schedule!A:F')
     parser.add_argument('--start-date', type=datetime.date.fromisoformat,
                         default="2021-06-07")
     args = parser.parse_args()
