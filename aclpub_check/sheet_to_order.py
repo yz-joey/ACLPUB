@@ -72,7 +72,7 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
         if day_name != old_day_name:
             day_number = time.strptime(day_name, "%A").tm_wday
             date = start_date + datetime.timedelta(days=day_number)
-            order_lines.append(date.strftime("* %a %d %b %Y"))
+            order_lines.append(date.strftime("* %a %d %b %Y (all times PST)"))
             old_day_name = day_name
 
         # add a session entry
