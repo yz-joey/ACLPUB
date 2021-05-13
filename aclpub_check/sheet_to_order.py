@@ -62,8 +62,7 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
          session,
          date_and_time,
          friendly_time_zones,
-         session_title,
-         paper_group] = row
+         session_title] = row
 
         # calculate the date and time of this session
         day_name, time_frame = date_and_time.split(", ")
@@ -76,24 +75,21 @@ def sheet_to_order(spreadsheet_id, sessions_range, papers_range, start_date):
             order_lines.append(date.strftime("* %a %d %b %Y"))
             old_day_name = day_name
 
-        # check paper group.
-        group = list(set([p[-1] for p in session_to_papers[block, session]]))
-        try: 
-            assert group[0] == paper_group.replace(" (US)", "")
-        except:
-            paper_group = group[0]
-            logging.error("Mismatched group in block{}, session{}.".format(block, session))
-            
         # add a session entry
-        order_lines.append(f"= {start_time}--{end_time} {paper_group}")
+        order_lines.append(f"= {start_time}--{end_time} {session_title}")
 
         # add an entry for each paper
-        for submission_id, authors, title, _ in session_to_papers[block, session]:
+        papers = session_to_papers.pop((block, session))
+        for submission_id, authors, title, _ in papers:
             # for regular papers, add them by submission number
             if submission_id.isdigit():
                 order_lines.append(f"{submission_id} # {title}")
             else:
                 order_lines.append(f"! [{submission_id}] {title} %by {authors}")
+
+    # make sure all papers have been used
+    if session_to_papers:
+        logging.warning(f"unused papers: {session_to_papers}")
 
     # return the constructed order file
     return "\n".join(order_lines) + "\n"
@@ -104,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument('--spreadsheet-id',
                         default='14ebEFK6egReR2Y_6BxdMO6V_LZoOMhqk1OGYNUYpLI0')
     parser.add_argument('--papers-range', default='Final-AllPaperTimes!A:L')
-    parser.add_argument('--sessions-range', default='Detailed Schedule!A:F')
+    parser.add_argument('--sessions-range', default='Detailed Schedule!A:E')
     parser.add_argument('--start-date', type=datetime.date.fromisoformat,
                         default="2021-06-07")
     args = parser.parse_args()
