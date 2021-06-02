@@ -238,9 +238,21 @@ class Formatter(object):
 
             
     def check_font(self):
-        '''Check the font'''
+        '''Check the font
+
+        Note: the var `correct_fontnam_macos_var` and extra check has
+        been added in order to properly validate the Nimbus fonts, on MacOS,
+        for (at least) XeLaTeX. This gets us as close as possible to
+        a vanilla pdflatex build. When running these fonts w/ XeLaTeX,
+        the output font name is `"NimbusRomNo9L-Reg"` (not `"NimbusRomNo9L-Regu"`),
+        plus something also pre-pends `"ITXLGF+"` to the string
+        (so we get a `max_font_name` `"ITXLGF+NimbusRomNo9L-Reg"`).
+        Nimbus fonts may be downloaded here:
+        <https://www.fontsquirrel.com/fonts/list/foundry/urw>
+        '''
 
         correct_fontname = "NimbusRomNo9L-Regu"
+        correct_fontnam_macos_var = "NimbusRomNo9L-Reg"
         fonts = defaultdict(int)
         for i, page in enumerate(self.pdf.pages):
             try:
@@ -249,12 +261,13 @@ class Formatter(object):
             except:
                 self.logs[Error.FONT] += [f"Can't parse page #{i+1}"]
         max_font_count, max_font_name = max((count, name) for name, count in fonts.items())  # find most used font
+        input(max_font_name)
         sum_char_count = sum(fonts.values())
         # TODO: make this a command line argument
         if max_font_count / sum_char_count < 0.35:  # the most used font should be used more than 35% of the time
             self.logs[Error.FONT] += ["Can't find the main font"]
 
-        if not max_font_name.endswith(correct_fontname):  # the most used font should be `correct_fontname`
+        if not max_font_name.endswith(correct_fontname) and correct_fontnam_macos_var not in max_font_name:  # the most used font should be `correct_fontname`
             self.logs[Error.FONT] += [f"Wrong font. The main font used is {max_font_name} when it should be {correct_fontname}."]
 
             
